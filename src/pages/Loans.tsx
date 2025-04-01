@@ -1,7 +1,6 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
-import { mockLoans, mockClients } from '@/data/mockData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
@@ -30,24 +29,154 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Loan, LoanStatus } from '@/types/loan';
-import { Plus, Search, FileText, ArrowUpRight } from 'lucide-react';
+import { Plus, Search, FileText, ArrowUpRight, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+
+// Define types for our DB data
+interface DbLoan {
+  id: string;
+  client_id: string;
+  amount: number;
+  interest_rate: number;
+  term: number;
+  purpose: string;
+  status: string;
+  branch_id: string;
+  approved_at: string | null;
+  approved_by: string | null;
+  disbursed_at: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  created_at: string;
+  updated_at: string;
+  product_id: string | null;
+}
+
+interface DbClient {
+  id: string;
+  first_name: string;
+  last_name: string;
+}
+
+interface LoadingState {
+  loans: boolean;
+  clients: boolean;
+  approval: boolean;
+}
 
 const Loans = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const { toast } = useToast();
-
-  // Combine client names with loans for display
-  const loansWithClientNames = mockLoans.map(loan => {
-    const client = mockClients.find(c => c.id === loan.clientId);
-    return {
-      ...loan,
-      clientName: client ? `${client.firstName} ${client.lastName}` : 'Unknown Client'
-    };
+  const [loans, setLoans] = useState<Array<DbLoan & { clientName: string }>>([]);
+  const [clients, setClients] = useState<DbClient[]>([]);
+  const [loading, setLoading] = useState<LoadingState>({
+    loans: true,
+    clients: false,
+    approval: false
   });
+  const [error, setError] = useState<string | null>(null);
+  
+  const { toast } = useToast();
+  const navigate = useNavigate();
 
-  const filteredLoans = loansWithClientNames.filter(loan => {
+  useEffect(() => {
+    fetchLoans();
+    fetchClients();
+  }, []);
+
+  const fetchLoans = async () => {
+    try {
+      setLoading(prev => ({ ...prev, loans: true }));
+      
+      const { data: loansData, error: loansError } = await supabase
+        .from('loans')
+        .select(`
+          *,
+          clients (id, first_name, last_name)
+        `);
+      
+      if (loansError) throw loansError;
+      
+      // Transform data to match expected format
+      const transformedLoans = loansData.map(loan => ({
+        ...loan,
+        clientName: loan.clients ? `${loan.clients.first_name} ${loan.clients.last_name}` : 'Unknown Client'
+      }));
+      
+      setLoans(transformedLoans);
+    } catch (err) {
+      console.error('Error fetching loans:', err);
+      setError('Failed to load loans. Please try again later.');
+      toast({
+        title: "Error",
+        description: "Failed to load loans. Please try again later.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(prev => ({ ...prev, loans: false }));
+    }
+  };
+
+  const fetchClients = async () => {
+    try {
+      setLoading(prev => ({ ...prev, clients: true }));
+      
+      const { data: clientsData, error: clientsError } = await supabase
+        .from('clients')
+        .select('id, first_name, last_name');
+      
+      if (clientsError) throw clientsError;
+      
+      setClients(clientsData);
+    } catch (err) {
+      console.error('Error fetching clients:', err);
+      // We don't set the main error state here since clients are secondary data
+    } finally {
+      setLoading(prev => ({ ...prev, clients: false }));
+    }
+  };
+
+  const approveLoan = async (loanId: string) => {
+    try {
+      setLoading(prev => ({ ...prev, approval: true }));
+      
+      // In a real app, we would get the current authenticated user's id
+      const approvedBy = "00000000-0000-0000-0000-000000000000"; // Placeholder
+      
+      const { error: updateError } = await supabase
+        .from('loans')
+        .update({ 
+          status: LoanStatus.APPROVED,
+          approved_by: approvedBy,
+          approved_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', loanId);
+      
+      if (updateError) throw updateError;
+      
+      // Refresh loans data
+      await fetchLoans();
+      
+      toast({
+        title: "Loan Approved",
+        description: `Loan #${loanId.substring(0, 8)} has been approved successfully.`
+      });
+    } catch (err) {
+      console.error('Error approving loan:', err);
+      toast({
+        title: "Error",
+        description: "Failed to approve loan. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(prev => ({ ...prev, approval: false }));
+    }
+  };
+
+  const filteredLoans = loans.filter(loan => {
     const matchesSearch = 
       loan.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       loan.id.includes(searchQuery) ||
@@ -79,13 +208,6 @@ const Loans = () => {
     }
   };
 
-  const approveLoan = (loanId: string) => {
-    toast({
-      title: "Loan Approved",
-      description: `Loan #${loanId} has been approved successfully.`
-    });
-  };
-
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -93,6 +215,10 @@ const Loans = () => {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(value);
+  };
+
+  const handleNewLoan = () => {
+    navigate('/loans/create');
   };
 
   return (
@@ -103,56 +229,10 @@ const Loans = () => {
           <p className="text-muted-foreground">Manage loan applications and disbursements</p>
         </div>
         
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button className="flex items-center gap-1">
-              <Plus className="h-4 w-4" />
-              <span>New Loan</span>
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle>Create New Loan</DialogTitle>
-            </DialogHeader>
-            <div className="grid grid-cols-2 gap-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="client">Client</Label>
-                <Select>
-                  <SelectTrigger id="client">
-                    <SelectValue placeholder="Select client" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {mockClients.map(client => (
-                      <SelectItem key={client.id} value={client.id}>
-                        {client.firstName} {client.lastName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="amount">Loan Amount</Label>
-                <Input id="amount" type="number" placeholder="Enter amount" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="interestRate">Interest Rate (%)</Label>
-                <Input id="interestRate" type="number" placeholder="Enter interest rate" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="term">Term (months)</Label>
-                <Input id="term" type="number" placeholder="Enter loan term" />
-              </div>
-              <div className="col-span-2 space-y-2">
-                <Label htmlFor="purpose">Loan Purpose</Label>
-                <Input id="purpose" placeholder="Enter loan purpose" />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline">Cancel</Button>
-              <Button>Create Loan</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={handleNewLoan} className="flex items-center gap-1">
+          <Plus className="h-4 w-4" />
+          <span>New Loan</span>
+        </Button>
       </div>
 
       <div className="bg-white rounded-lg border">
@@ -187,63 +267,92 @@ const Loans = () => {
         </div>
 
         <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Loan ID</TableHead>
-                <TableHead>Client</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Purpose</TableHead>
-                <TableHead>Term</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredLoans.length === 0 ? (
+          {loading.loans ? (
+            <div className="flex justify-center items-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <span className="ml-2 text-lg text-muted-foreground">Loading loans...</span>
+            </div>
+          ) : error ? (
+            <div className="text-center py-12">
+              <p className="text-destructive">{error}</p>
+              <Button 
+                variant="outline" 
+                className="mt-4"
+                onClick={() => {
+                  setError(null);
+                  fetchLoans();
+                }}
+              >
+                Retry
+              </Button>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
-                    No loans found
-                  </TableCell>
+                  <TableHead>Loan ID</TableHead>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Purpose</TableHead>
+                  <TableHead>Term</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ) : (
-                filteredLoans.map((loan) => (
-                  <TableRow key={loan.id}>
-                    <TableCell>
-                      <div className="font-mono text-xs">#{loan.id}</div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="font-medium">{loan.clientName}</div>
-                    </TableCell>
-                    <TableCell>{formatCurrency(loan.amount)}</TableCell>
-                    <TableCell>
-                      <div className="max-w-xs truncate">{loan.purpose}</div>
-                    </TableCell>
-                    <TableCell>{loan.term} months</TableCell>
-                    <TableCell>
-                      <Badge className={getStatusColor(loan.status)} variant="outline">
-                        {loan.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon">
-                          <FileText className="h-4 w-4" />
-                        </Button>
-                        
-                        {loan.status === LoanStatus.PENDING && (
-                          <Button size="sm" onClick={() => approveLoan(loan.id)}>
-                            <ArrowUpRight className="h-3 w-3 mr-1" />
-                            Approve
-                          </Button>
-                        )}
-                      </div>
+              </TableHeader>
+              <TableBody>
+                {filteredLoans.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
+                      No loans found
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  filteredLoans.map((loan) => (
+                    <TableRow key={loan.id}>
+                      <TableCell>
+                        <div className="font-mono text-xs">#{loan.id.substring(0, 8)}</div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium">{loan.clientName}</div>
+                      </TableCell>
+                      <TableCell>{formatCurrency(loan.amount)}</TableCell>
+                      <TableCell>
+                        <div className="max-w-xs truncate">{loan.purpose}</div>
+                      </TableCell>
+                      <TableCell>{loan.term} months</TableCell>
+                      <TableCell>
+                        <Badge className={getStatusColor(loan.status as LoanStatus)} variant="outline">
+                          {loan.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon">
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                          
+                          {loan.status === LoanStatus.PENDING && (
+                            <Button 
+                              size="sm" 
+                              onClick={() => approveLoan(loan.id)}
+                              disabled={loading.approval}
+                            >
+                              {loading.approval ? (
+                                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                              ) : (
+                                <ArrowUpRight className="h-3 w-3 mr-1" />
+                              )}
+                              Approve
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
         </div>
       </div>
     </AppLayout>
