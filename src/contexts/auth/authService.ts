@@ -38,10 +38,17 @@ export const fetchUserProfile = async (userId: string): Promise<User | null> => 
 
 export const login = async (email: string, password: string) => {
   try {
-    const response = await supabase.auth.signInWithPassword({
+    // Add timeout to prevent indefinite hangs during login
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Login request timed out. Please try again.')), 15000);
+    });
+    
+    const loginPromise = supabase.auth.signInWithPassword({
       email,
       password,
     });
+    
+    const response = await Promise.race([loginPromise, timeoutPromise]) as Awaited<typeof loginPromise>;
     
     if (response.error) {
       // Provide more descriptive error messages
@@ -52,7 +59,7 @@ export const login = async (email: string, password: string) => {
       } else if (errorMessage.includes("Email not confirmed")) {
         errorMessage = "Your email has not been verified. Please check your inbox for a verification link.";
       } else if (errorMessage.includes("rate limit")) {
-        errorMessage = "Too many login attempts. Please try again later.";
+        errorMessage = "Too many login attempts. Please try again in a few minutes.";
       }
       
       throw new Error(errorMessage);
@@ -67,7 +74,12 @@ export const login = async (email: string, password: string) => {
 
 export const register = async (email: string, password: string, name: string) => {
   try {
-    const response = await supabase.auth.signUp({
+    // Add timeout to prevent indefinite hangs during registration
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Registration request timed out. Please try again.')), 15000);
+    });
+    
+    const registerPromise = supabase.auth.signUp({
       email,
       password,
       options: {
@@ -76,6 +88,8 @@ export const register = async (email: string, password: string, name: string) =>
         }
       }
     });
+    
+    const response = await Promise.race([registerPromise, timeoutPromise]) as Awaited<typeof registerPromise>;
     
     if (response.error) {
       // Provide more descriptive error messages
@@ -86,7 +100,7 @@ export const register = async (email: string, password: string, name: string) =>
       } else if (errorMessage.includes("weak password")) {
         errorMessage = "Password is too weak. Please use a stronger password with at least 8 characters, including numbers and symbols.";
       } else if (errorMessage.includes("rate limit")) {
-        errorMessage = "Too many signup attempts. Please try again later.";
+        errorMessage = "Too many signup attempts. Please try again in a few minutes.";
       }
       
       throw new Error(errorMessage);
@@ -132,7 +146,14 @@ export const getUserFromSession = (session: Session | null): User | null => {
 
 export const refreshSession = async () => {
   try {
-    const { data, error } = await supabase.auth.refreshSession();
+    // Add timeout to prevent indefinite hangs during session refresh
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Session refresh timed out. Please try again.')), 10000);
+    });
+    
+    const refreshPromise = supabase.auth.refreshSession();
+    
+    const { data, error } = await Promise.race([refreshPromise, timeoutPromise]) as Awaited<typeof refreshPromise>;
     
     if (error) {
       throw new Error(`Session refresh failed: ${error.message}`);

@@ -76,7 +76,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setIsLoading(false);
         setAuthError("Authentication timed out. Please try refreshing the page.");
       }
-    }, 10000); // Increased timeout for slower connections
+    }, 6000); // Reduced from 10000ms to 6000ms for more responsiveness
 
     // Set up auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
@@ -205,7 +205,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       toast({
         title: "Login successful",
-        description: "Welcome to MicroFinance System"
+        description: "Welcome to Muchiri LoanLight SACCO"
       });
       
       return data;

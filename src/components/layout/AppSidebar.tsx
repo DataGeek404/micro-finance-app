@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -54,7 +55,7 @@ export function AppSidebar() {
       <SidebarHeader className="p-4 flex items-center">
         <div className="flex gap-2 items-center">
           <DollarSign className="h-6 w-6 text-sidebar-primary" />
-          <span className="font-bold text-xl text-sidebar-primary">LoanLight</span>
+          <span className="font-bold text-xl text-sidebar-primary">Muchiri LoanLight SACCO</span>
         </div>
         <div className="ml-auto md:hidden">
           <SidebarTrigger />

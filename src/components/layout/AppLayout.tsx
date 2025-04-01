@@ -24,13 +24,13 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       const timeout = setTimeout(() => {
         console.log("Loading state is taking too long. Current auth state:", { isLoading, isAuthenticated });
         setLoadingTimeout(true);
-      }, 3000);
+      }, 2000); // Reduced from 3000ms to 2000ms for more responsiveness
       
       // Set a critical timeout for very long loading
       const criticalTimeoutId = setTimeout(() => {
         console.error("Critical timeout reached. Forcing redirect to login page");
         setCriticalTimeout(true);
-      }, 8000);
+      }, 5000); // Reduced from 8000ms to 5000ms for more responsiveness
       
       return () => {
         clearTimeout(timeout);
@@ -66,7 +66,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           <div className="text-center text-sm text-muted-foreground mt-2">
             {loadingTimeout ? 
               <div>
-                <p>Taking longer than expected. Please try refreshing the page...</p>
+                <p>Authentication timed out. Please try refreshing the page...</p>
                 <button 
                   onClick={() => window.location.reload()}
                   className="mt-2 px-4 py-2 text-xs rounded bg-primary text-white hover:bg-primary/90"

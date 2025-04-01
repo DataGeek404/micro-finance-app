@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { DollarSign, LogIn, UserPlus, AlertTriangle, RefreshCcw } from 'lucide-react';
-import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/auth';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -65,7 +64,16 @@ const Login = () => {
     setError(null);
     
     try {
-      await login(values.email, values.password);
+      // Add slight delay for better user feedback
+      const loginPromise = login(values.email, values.password);
+      
+      // Show immediate feedback
+      toast({
+        title: "Authenticating...",
+        description: "Please wait while we log you in",
+      });
+      
+      await loginPromise;
       navigate('/dashboard');
     } catch (error) {
       console.error('Login error:', error);
@@ -80,7 +88,16 @@ const Login = () => {
     setError(null);
     
     try {
-      await register(values.email, values.password, values.name);
+      // Add slight delay for better user feedback
+      const registerPromise = register(values.email, values.password, values.name);
+      
+      // Show immediate feedback
+      toast({
+        title: "Creating account...",
+        description: "Please wait while we set up your account",
+      });
+      
+      await registerPromise;
       toast({
         title: 'Signup Successful',
         description: 'Your account has been created. You can now log in.',
@@ -115,7 +132,7 @@ const Login = () => {
                 <DollarSign className="h-6 w-6" />
               </div>
             </div>
-            <CardTitle className="text-2xl font-bold">LoanLight</CardTitle>
+            <CardTitle className="text-2xl font-bold">Muchiri LoanLight SACCO</CardTitle>
             <CardDescription>Your microcredit finance system</CardDescription>
           </CardHeader>
           
