@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { mockClients } from '@/data/mockData';
@@ -26,6 +25,17 @@ import {
   DialogFooter,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Client, ClientStatus } from '@/types/client';
@@ -40,7 +50,6 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
 
-// Client form validation schema
 const clientSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
@@ -68,7 +77,6 @@ const Clients = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  // Setup form with react-hook-form and zod validation
   const form = useForm<ClientFormValues>({
     resolver: zodResolver(clientSchema),
     defaultValues: {
@@ -87,7 +95,6 @@ const Clients = () => {
     }
   });
 
-  // Fetch clients from Supabase
   useEffect(() => {
     async function fetchClients() {
       try {
@@ -101,7 +108,6 @@ const Clients = () => {
           throw error;
         }
         
-        // Transform Supabase data to match Client type
         const transformedData = data.map((client): Client => ({
           id: client.id,
           firstName: client.first_name,
@@ -138,7 +144,6 @@ const Clients = () => {
     fetchClients();
   }, [toast]);
 
-  // Fetch branches for the dropdown
   useEffect(() => {
     async function fetchBranches() {
       try {
@@ -169,7 +174,6 @@ const Clients = () => {
     try {
       setIsSubmitting(true);
       
-      // Format data for Supabase
       const newClient = {
         first_name: data.firstName,
         last_name: data.lastName,
@@ -195,7 +199,6 @@ const Clients = () => {
         throw error;
       }
       
-      // Transform the new client to match Client type
       const newClientTransformed: Client = {
         id: clientData[0].id,
         firstName: clientData[0].first_name,
@@ -216,7 +219,6 @@ const Clients = () => {
         photo: clientData[0].photo || undefined,
       };
       
-      // Update the client list with the new client
       setClientData(prev => [newClientTransformed, ...prev]);
       
       toast({
@@ -224,7 +226,6 @@ const Clients = () => {
         description: `${data.firstName} ${data.lastName} has been added to the system`,
       });
       
-      // Close dialog and reset form
       setIsDialogOpen(false);
       form.reset();
       
@@ -240,7 +241,7 @@ const Clients = () => {
     }
   };
 
-  const handleDelete = async (clientId: string) => {
+  const handleDelete = async (clientId: string, clientName: string) => {
     try {
       const { error } = await supabase
         .from('clients')
@@ -253,8 +254,8 @@ const Clients = () => {
       
       setClientData(clientData.filter(client => client.id !== clientId));
       toast({
-        title: "Client deleted",
-        description: "The client has been removed from the system",
+        title: "Client permanently deleted",
+        description: `${clientName} has been completely removed from the system`,
       });
     } catch (error: any) {
       console.error('Error deleting client:', error);
@@ -671,13 +672,35 @@ const Clients = () => {
                             <FileEdit className="h-4 w-4" />
                             Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            className="flex gap-2 text-rose-500 focus:text-rose-500"
-                            onClick={() => handleDelete(client.id)}
-                          >
-                            <Trash className="h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <DropdownMenuItem 
+                                className="flex gap-2 text-rose-500 focus:text-rose-500"
+                                onSelect={(e) => e.preventDefault()}
+                              >
+                                <Trash className="h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Permanently Delete Client</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This action cannot be undone. This will permanently delete {client.firstName} {client.lastName} 
+                                  and all associated data from the database.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction 
+                                  className="bg-red-600 hover:bg-red-700"
+                                  onClick={() => handleDelete(client.id, `${client.firstName} ${client.lastName}`)}
+                                >
+                                  Delete Permanently
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
