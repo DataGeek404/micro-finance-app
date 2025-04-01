@@ -151,6 +151,7 @@ const OrganizationSettings = () => {
                         <SelectItem value="USD">USD - United States Dollar</SelectItem>
                         <SelectItem value="EUR">EUR - Euro</SelectItem>
                         <SelectItem value="GBP">GBP - British Pound</SelectItem>
+                        <SelectItem value="KES">KES - Kenyan Shilling</SelectItem>
                         <SelectItem value="JPY">JPY - Japanese Yen</SelectItem>
                         <SelectItem value="CAD">CAD - Canadian Dollar</SelectItem>
                       </SelectContent>
