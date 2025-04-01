@@ -24,7 +24,8 @@ const Index = () => {
             <Skeleton className="h-12 w-full" />
           </div>
           <div className="text-center text-sm text-muted-foreground mt-2">
-            Loading...
+            <p>Loading authentication state...</p>
+            <p className="mt-2 text-xs">If loading takes too long, <button onClick={() => window.location.reload()} className="text-primary underline">click here to refresh</button></p>
           </div>
         </div>
       </div>

@@ -13,6 +13,7 @@ interface AppLayoutProps {
 const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
   const [loadingTimeout, setLoadingTimeout] = useState(false);
+  const [criticalTimeout, setCriticalTimeout] = useState(false);
 
   // Add timeouts for better debugging and user experience
   useEffect(() => {
@@ -25,12 +26,28 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         setLoadingTimeout(true);
       }, 3000);
       
-      return () => clearTimeout(timeout);
+      // Set a critical timeout for very long loading
+      const criticalTimeoutId = setTimeout(() => {
+        console.error("Critical timeout reached. Forcing redirect to login page");
+        setCriticalTimeout(true);
+      }, 8000);
+      
+      return () => {
+        clearTimeout(timeout);
+        clearTimeout(criticalTimeoutId);
+      };
     } else {
       console.log("AppLayout: Auth state loaded, authenticated:", isAuthenticated);
       setLoadingTimeout(false);
+      setCriticalTimeout(false);
     }
   }, [isLoading, isAuthenticated]);
+
+  // Force redirect if critical timeout is reached
+  if (criticalTimeout) {
+    console.log("Critical timeout reached, redirecting to login");
+    return <Navigate to="/login" />;
+  }
 
   // Show loading UI while authentication state is being determined
   if (isLoading) {
@@ -48,7 +65,15 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           </div>
           <div className="text-center text-sm text-muted-foreground mt-2">
             {loadingTimeout ? 
-              "Taking longer than expected. Please try refreshing the page..." : 
+              <div>
+                <p>Taking longer than expected. Please try refreshing the page...</p>
+                <button 
+                  onClick={() => window.location.reload()}
+                  className="mt-2 px-4 py-2 text-xs rounded bg-primary text-white hover:bg-primary/90"
+                >
+                  Refresh Now
+                </button>
+              </div> : 
               "Loading your account..."}
           </div>
         </div>
