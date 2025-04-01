@@ -97,7 +97,7 @@ export function AppSidebar() {
               {mainMenuItems.map((item) => (
                 <SidebarMenuItem key={item.path}>
                   <SidebarMenuButton
-                    active={isActive(item.path)}
+                    isActive={isActive(item.path)}
                     onClick={() => navigate(item.path)}
                   >
                     <item.icon className="h-5 w-5" />
@@ -118,7 +118,7 @@ export function AppSidebar() {
               {settingsMenuItems.map((item) => (
                 <SidebarMenuItem key={item.path}>
                   <SidebarMenuButton
-                    active={isActive(item.path)}
+                    isActive={isActive(item.path)}
                     onClick={() => navigate(item.path)}
                   >
                     <item.icon className="h-5 w-5" />
