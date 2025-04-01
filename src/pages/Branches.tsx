@@ -57,6 +57,7 @@ const Branches = () => {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const { toast } = useToast();
 
   const form = useForm<BranchFormValues>({
@@ -68,25 +69,50 @@ const Branches = () => {
       phone: "",
       email: "",
       managerName: "",
-      managerId: "",
+      managerId: "00000000-0000-0000-0000-000000000000",
       status: "PENDING",
       openingDate: format(new Date(), "yyyy-MM-dd")
     },
   });
 
+  const checkAuth = async () => {
+    const { data: session } = await supabase.auth.getSession();
+    if (!session.session) {
+      setAuthError("You must be logged in to view and manage branches");
+      return false;
+    }
+    setAuthError(null);
+    return true;
+  };
+
   useEffect(() => {
-    fetchBranches();
+    const init = async () => {
+      const isAuthenticated = await checkAuth();
+      if (isAuthenticated) {
+        fetchBranches();
+      } else {
+        setLoading(false);
+      }
+    };
+    
+    init();
   }, []);
 
   const fetchBranches = async () => {
     setLoading(true);
     try {
+      console.log("Fetching branches...");
       const { data, error } = await supabase
         .from('branches')
         .select('*')
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error:", error);
+        throw error;
+      }
+      
+      console.log("Fetched branches:", data);
       setBranches(data || []);
     } catch (error) {
       console.error('Error fetching branches:', error);
@@ -103,6 +129,19 @@ const Branches = () => {
   const handleSubmit = async (values: BranchFormValues) => {
     setIsSubmitting(true);
     try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) {
+        toast({
+          title: "Authentication Error",
+          description: "You must be logged in to create a branch",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      console.log("Submitting branch data:", values);
+      
       const branchData = {
         name: values.name,
         location: values.location,
@@ -116,9 +155,14 @@ const Branches = () => {
         employee_count: 0
       };
 
-      const { error } = await supabase
+      console.log("Formatted branch data for insert:", branchData);
+
+      const { data, error } = await supabase
         .from('branches')
-        .insert(branchData);
+        .insert(branchData)
+        .select();
+      
+      console.log("Insert response:", { data, error });
       
       if (error) throw error;
       
@@ -163,6 +207,20 @@ const Branches = () => {
       return dateString;
     }
   };
+
+  if (authError) {
+    return (
+      <AppLayout>
+        <div className="p-6 text-center">
+          <div className="mb-4 text-red-500">
+            <Building2 className="h-12 w-12 mx-auto" />
+          </div>
+          <h2 className="text-xl font-bold">{authError}</h2>
+          <p className="mt-2">Please login to view and manage branches.</p>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
@@ -404,7 +462,7 @@ const Branches = () => {
               </CardContent>
               <CardFooter className="pt-2">
                 <Button variant="outline" className="w-full">
-                  View Details (KES)
+                  View Details
                 </Button>
               </CardFooter>
             </Card>
