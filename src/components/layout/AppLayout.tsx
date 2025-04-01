@@ -24,13 +24,13 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       const timeout = setTimeout(() => {
         console.log("Loading state is taking too long. Current auth state:", { isLoading, isAuthenticated });
         setLoadingTimeout(true);
-      }, 2000); // Reduced from 3000ms to 2000ms for more responsiveness
+      }, 30000); // Extended from 2000ms to 30000ms (30 seconds)
       
       // Set a critical timeout for very long loading
       const criticalTimeoutId = setTimeout(() => {
         console.error("Critical timeout reached. Forcing redirect to login page");
         setCriticalTimeout(true);
-      }, 5000); // Reduced from 8000ms to 5000ms for more responsiveness
+      }, 60000); // Extended from 5000ms to 60000ms (1 minute)
       
       return () => {
         clearTimeout(timeout);
