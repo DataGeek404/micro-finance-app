@@ -2,17 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { AuthContextType, User, UserRole } from '@/types/auth';
 import { useToast } from '@/hooks/use-toast';
-
-// Mock user for demo purposes
-const mockUser: User = {
-  id: '1',
-  email: 'admin@microfinance.com',
-  name: 'Admin User',
-  role: UserRole.ADMIN,
-  branch: 'Headquarters',
-  avatar: '/avatar.png',
-  createdAt: new Date(),
-};
+import { supabase } from '@/integrations/supabase/client';
 
 const defaultContext: AuthContextType = {
   user: null,
@@ -20,6 +10,7 @@ const defaultContext: AuthContextType = {
   isLoading: true,
   login: async () => {},
   logout: () => {},
+  register: async () => {},
 };
 
 const AuthContext = createContext<AuthContextType>(defaultContext);
@@ -30,33 +21,78 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check if user is already logged in
-    const storedUser = localStorage.getItem('microfinance_user');
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-      } catch (error) {
-        console.error('Failed to parse stored user:', error);
-        localStorage.removeItem('microfinance_user');
+    // Check for existing session
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (profileData) {
+          setUser({
+            id: session.user.id,
+            email: session.user.email || '',
+            name: profileData.name || '',
+            role: profileData.role as UserRole,
+            branch: profileData.branch_id || '',
+            avatar: profileData.avatar || '',
+            createdAt: new Date(session.user.created_at),
+          });
+        }
       }
-    }
-    setIsLoading(false);
+      setIsLoading(false);
+    };
+
+    checkSession();
+
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (profileData) {
+          setUser({
+            id: session.user.id,
+            email: session.user.email || '',
+            name: profileData.name || '',
+            role: profileData.role as UserRole,
+            branch: profileData.branch_id || '',
+            avatar: profileData.avatar || '',
+            createdAt: new Date(session.user.created_at),
+          });
+        }
+      } else {
+        setUser(null);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
     try {
-      // In a real app, this would be an API call
-      if (email === 'admin@microfinance.com' && password === 'password') {
-        setUser(mockUser);
-        localStorage.setItem('microfinance_user', JSON.stringify(mockUser));
-        toast({
-          title: "Login successful",
-          description: "Welcome to MicroFinance System"
-        });
-      } else {
-        throw new Error('Invalid credentials');
-      }
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Login successful",
+        description: "Welcome to MicroFinance System"
+      });
+      
+      return data;
     } catch (error) {
       toast({
         title: "Login failed",
@@ -67,9 +103,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = () => {
+  const register = async (email: string, password: string, name: string) => {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name: name,
+          }
+        }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Registration successful",
+        description: "Your account has been created. You can now log in."
+      });
+      
+      return data;
+    } catch (error) {
+      toast({
+        title: "Registration failed",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive"
+      });
+      throw error;
+    }
+  };
+
+  const logout = async () => {
+    const { error } = await supabase.auth.signOut();
+    
+    if (error) {
+      toast({
+        title: "Error signing out",
+        description: error.message,
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setUser(null);
-    localStorage.removeItem('microfinance_user');
     toast({
       title: "Logged out",
       description: "You have been successfully logged out"
@@ -84,6 +160,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         login,
         logout,
+        register,
       }}
     >
       {children}
