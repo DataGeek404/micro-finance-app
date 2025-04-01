@@ -15,6 +15,8 @@ export interface Loan {
   createdAt: Date;
   updatedAt: Date;
   branchId: string;
+  productId?: string;
+  charges?: LoanCharge[];
 }
 
 export enum LoanStatus {
@@ -36,6 +38,43 @@ export interface LoanRepayment {
   isPaid: boolean;
   paymentMethod?: string;
   transactionId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface LoanProduct {
+  id: string;
+  name: string;
+  description: string;
+  minAmount: number;
+  maxAmount: number;
+  minTerm: number;
+  maxTerm: number;
+  interestRate: number;
+  interestType: 'FLAT' | 'REDUCING_BALANCE';
+  status: 'ACTIVE' | 'INACTIVE';
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface LoanCharge {
+  id: string;
+  name: string;
+  amount: number;
+  type: 'FIXED' | 'PERCENTAGE';
+  chargeWhen: 'DISBURSEMENT' | 'REPAYMENT' | 'OVERDUE';
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface LoanApplication {
+  id: string;
+  clientId: string;
+  productId: string;
+  amount: number;
+  term: number;
+  purpose: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
   createdAt: Date;
   updatedAt: Date;
 }
