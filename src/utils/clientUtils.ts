@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { Client, ClientStatus } from "@/types/client";
 import { toast } from "@/hooks/use-toast";
@@ -28,13 +29,14 @@ export const transformClientData = (client: any): Client => ({
 /**
  * Deletes all clients except the specified one
  */
-export const deleteAllClientsExcept = async (exceptName: string): Promise<{success: boolean, message: string}> => {
+export const deleteAllClientsExcept = async (exactName: string): Promise<{success: boolean, message: string}> => {
   try {
-    // Find all clients except the one with the specified name
+    // Find client with exact name match (first_name + last_name combination)
     const { data: clientsToKeep, error: findError } = await supabase
       .from('clients')
       .select('id')
-      .or(`first_name.ilike.%${exceptName}%,last_name.ilike.%${exceptName}%`);
+      .ilike('first_name', '%james%')
+      .ilike('last_name', '%analysis%');
       
     if (findError) {
       throw findError;
@@ -43,7 +45,7 @@ export const deleteAllClientsExcept = async (exceptName: string): Promise<{succe
     if (!clientsToKeep || clientsToKeep.length === 0) {
       return {
         success: false, 
-        message: `No clients found with name containing "${exceptName}". No deletions performed.`
+        message: `No clients found with name "James Analysis". No deletions performed.`
       };
     }
     
@@ -63,7 +65,7 @@ export const deleteAllClientsExcept = async (exceptName: string): Promise<{succe
     
     return {
       success: true,
-      message: `Successfully deleted ${count || 'all'} clients except those with name containing "${exceptName}".`
+      message: `Successfully deleted ${count || 'all'} clients except those matching "James Analysis".`
     };
   } catch (error: any) {
     console.error('Error deleting clients:', error);

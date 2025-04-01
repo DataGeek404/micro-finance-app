@@ -63,7 +63,7 @@ const clientSchema = z.object({
   incomeSource: z.string().min(1, "Income source is required"),
   monthlyIncome: z.coerce.number().min(0, "Monthly income must be positive"),
   branchId: z.string().min(1, "Branch is required"),
-  status: z.enum(["ACTIVE", "INACTIVE", "BLACKLISTED", "PENDING"]).optional(),
+  status: z.enum(["ACTIVE", "INACTIVE", "BLACKLISTED", "PENDING"]),
 });
 
 type ClientFormValues = z.infer<typeof clientSchema>;
@@ -202,7 +202,7 @@ const Clients = () => {
   const handleDeleteAllExcept = async () => {
     try {
       setIsDeletingAll(true);
-      const result = await deleteAllClientsExcept("James");
+      const result = await deleteAllClientsExcept("james analysis");
       
       if (result.success) {
         // Refresh client list
@@ -248,7 +248,7 @@ const Clients = () => {
       
       if (isEditMode && currentClient) {
         // Update existing client
-        const updatedClient = {
+        const updatedClient: Client = {
           ...currentClient,
           firstName: data.firstName,
           lastName: data.lastName,
@@ -262,7 +262,7 @@ const Clients = () => {
           incomeSource: data.incomeSource,
           monthlyIncome: data.monthlyIncome,
           branchId: data.branchId,
-          status: data.status || currentClient.status,
+          status: data.status as ClientStatus,
         };
         
         const result = await updateClient(updatedClient);
@@ -403,14 +403,14 @@ const Clients = () => {
             <AlertDialogTrigger asChild>
               <Button variant="outline" className="flex items-center gap-1">
                 <Eraser className="h-4 w-4" />
-                <span>Delete All Except James</span>
+                <span>Delete All Except James Analysis</span>
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Delete All Clients Except James</AlertDialogTitle>
+                <AlertDialogTitle>Delete All Clients Except James Analysis</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This action will delete ALL clients except those with "James" in their name.
+                  This action will delete ALL clients except those with name "James Analysis".
                   This cannot be undone. Are you sure you want to continue?
                 </AlertDialogDescription>
               </AlertDialogHeader>
@@ -421,7 +421,7 @@ const Clients = () => {
                   onClick={handleDeleteAllExcept}
                   disabled={isDeletingAll}
                 >
-                  {isDeletingAll ? "Deleting..." : "Delete All Except James"}
+                  {isDeletingAll ? "Deleting..." : "Delete All Except James Analysis"}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
