@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,17 +19,38 @@ import { SystemSettings as SystemSettingsType } from '@/types/settings';
 
 const SystemSettings = () => {
   const { toast } = useToast();
-
-  // Mock initial settings
-  const initialSettings: SystemSettingsType = {
+  const [settings, setSettings] = useState<SystemSettingsType>({
     maintenanceMode: false,
     debugMode: false,
     maxFileUploadSize: 10,
     allowedFileTypes: ['pdf', 'jpg', 'png', 'docx', 'xlsx'],
+  });
+  
+  // Handle switch changes
+  const handleSwitchChange = (id: keyof SystemSettingsType) => {
+    setSettings(prev => ({
+      ...prev,
+      [id]: !prev[id as keyof typeof prev]
+    }));
+  };
+
+  // Handle input changes
+  const handleInputChange = (id: string, value: string | number) => {
+    if (id === 'allowedTypes') {
+      // Convert comma-separated string to array
+      const fileTypes = (value as string).split(',').map(type => type.trim()).filter(Boolean);
+      setSettings(prev => ({ ...prev, allowedFileTypes: fileTypes }));
+    } else if (id === 'maxFileSize') {
+      setSettings(prev => ({ ...prev, maxFileUploadSize: Number(value) }));
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Here you would typically save the settings to your backend
+    console.log("Saving settings:", settings);
+    
     toast({
       title: "Settings Saved",
       description: "System settings have been updated successfully."
@@ -63,7 +84,11 @@ const SystemSettings = () => {
                         Put the system in maintenance mode to prevent user access while updating
                       </p>
                     </div>
-                    <Switch id="maintenanceMode" defaultChecked={initialSettings.maintenanceMode} />
+                    <Switch 
+                      id="maintenanceMode" 
+                      checked={settings.maintenanceMode}
+                      onCheckedChange={() => handleSwitchChange('maintenanceMode')} 
+                    />
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
@@ -72,7 +97,11 @@ const SystemSettings = () => {
                         Enable detailed logging and error reporting for troubleshooting
                       </p>
                     </div>
-                    <Switch id="debugMode" defaultChecked={initialSettings.debugMode} />
+                    <Switch 
+                      id="debugMode" 
+                      checked={settings.debugMode}
+                      onCheckedChange={() => handleSwitchChange('debugMode')}
+                    />
                   </div>
                 </div>
               </div>
@@ -85,14 +114,16 @@ const SystemSettings = () => {
                     <Input 
                       id="maxFileSize" 
                       type="number" 
-                      defaultValue={initialSettings.maxFileUploadSize}
+                      value={settings.maxFileUploadSize}
+                      onChange={(e) => handleInputChange('maxFileSize', e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="allowedTypes">Allowed File Types</Label>
                     <Input 
                       id="allowedTypes" 
-                      defaultValue={initialSettings.allowedFileTypes.join(', ')}
+                      value={settings.allowedFileTypes.join(', ')}
+                      onChange={(e) => handleInputChange('allowedTypes', e.target.value)}
                     />
                     <p className="text-xs text-muted-foreground mt-1">
                       Comma-separated list of file extensions (e.g., pdf, jpg, png)
@@ -156,7 +187,7 @@ const SystemSettings = () => {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mt-4">
                   <div className="space-y-2">
                     <Label htmlFor="backupFrequency">Backup Frequency</Label>
-                    <Select>
+                    <Select defaultValue="daily">
                       <SelectTrigger id="backupFrequency">
                         <SelectValue placeholder="Select frequency" />
                       </SelectTrigger>

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { DollarSign } from 'lucide-react';
+import { DollarSign, LogIn } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -29,6 +29,11 @@ const Login = () => {
 
     try {
       await login(email, password);
+      toast({
+        title: 'Login Successful',
+        description: 'Welcome back to LoanLight',
+        variant: 'default',
+      });
       navigate('/dashboard');
     } catch (error) {
       console.error('Login error:', error);
@@ -43,8 +48,8 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-md p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
+      <div className="w-full max-w-md">
         <Card className="shadow-lg">
           <CardHeader className="text-center pb-6">
             <div className="flex justify-center mb-2">
@@ -81,8 +86,14 @@ const Login = () => {
               </div>
             </CardContent>
             <CardFooter>
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Logging in...' : 'Login'}
+              <Button 
+                type="submit" 
+                className="w-full" 
+                isLoading={isLoading} 
+                size="full"
+              >
+                <LogIn className="mr-2 h-4 w-4" />
+                Login
               </Button>
             </CardFooter>
           </form>
