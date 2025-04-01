@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import AppLayout from '@/components/layout/AppLayout';
@@ -62,9 +61,19 @@ const EmailSettings = () => {
   };
 
   // Helper function to map app types to database fields
-  const mapAppToDbSettings = (appSettings: EmailSettingsType, existingId?: string): Partial<DbEmailSettings> => {
+  const mapAppToDbSettings = (appSettings: EmailSettingsType): {
+    provider: string;
+    from_email: string;
+    from_name: string;
+    smtp_host?: string;
+    smtp_port?: number;
+    smtp_username?: string;
+    smtp_password?: string;
+    api_key?: string;
+    domain?: string;
+    id?: string;
+  } => {
     return {
-      ...(existingId ? { id: existingId } : {}),
       provider: appSettings.provider,
       from_email: appSettings.fromEmail,
       from_name: appSettings.fromName,
@@ -110,7 +119,10 @@ const EmailSettings = () => {
         // Update existing record
         const { error } = await supabase
           .from('email_settings')
-          .update(mapAppToDbSettings(formData, dbEmailSettings.id))
+          .update({
+            ...mapAppToDbSettings(formData),
+            id: dbEmailSettings.id
+          })
           .eq('id', dbEmailSettings.id);
           
         if (error) throw error;
@@ -118,7 +130,7 @@ const EmailSettings = () => {
         // Create new record
         const { error } = await supabase
           .from('email_settings')
-          .insert([mapAppToDbSettings(formData)]);
+          .insert(mapAppToDbSettings(formData));
           
         if (error) throw error;
       }
