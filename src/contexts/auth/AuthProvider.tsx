@@ -1,22 +1,19 @@
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { AuthContextType, User, UserRole } from '@/types/auth';
+import React, { useState, useEffect } from 'react';
+import { Session } from '@supabase/supabase-js';
+import { AuthContext } from './AuthContext';
+import { User } from './types';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import * as authService from './authService';
 
-const defaultContext: AuthContextType = {
-  user: null,
-  isAuthenticated: false,
-  isLoading: true,
-  login: async () => {},
-  logout: () => {},
-  register: async () => {},
-};
+interface AuthProviderProps {
+  children: React.ReactNode;
+}
 
-const AuthContext = createContext<AuthContextType>(defaultContext);
-
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const { toast } = useToast();
 
@@ -33,57 +30,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, 5000);
 
     // Set up auth state listener first
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       console.log("Auth state changed:", event);
       
       if (!mounted) return;
 
       if (event === 'SIGNED_OUT') {
-        // Handle sign out by clearing user
         console.log("User signed out, clearing user state");
         setUser(null);
+        setSession(null);
         setIsLoading(false);
         return;
       }
       
-      if (session) {
-        try {
-          console.log("Session found in auth state change, fetching profile...");
-          const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-
-          if (profileError) {
-            console.error("Profile fetch error in state change:", profileError);
+      if (newSession) {
+        setSession(newSession);
+        
+        // Use setTimeout to prevent potential deadlocks
+        setTimeout(async () => {
+          try {
+            console.log("Session found in auth state change, fetching profile...");
+            const profileData = await authService.fetchUserProfile(newSession.user.id);
+            
+            if (mounted) {
+              if (profileData) {
+                console.log("Setting user from auth state change");
+                setUser(profileData);
+              } else {
+                setUser(null);
+              }
+              setIsLoading(false);
+            }
+          } catch (error) {
+            console.error("Error in auth state change:", error);
             if (mounted) {
               setUser(null);
               setIsLoading(false);
             }
-            return;
           }
-
-          if (profileData && mounted) {
-            console.log("Setting user from auth state change");
-            setUser({
-              id: session.user.id,
-              email: session.user.email || '',
-              name: profileData.name || '',
-              role: profileData.role as UserRole,
-              branch: profileData.branch_id || '',
-              avatar: profileData.avatar || '',
-              createdAt: new Date(session.user.created_at),
-            });
-            setIsLoading(false);
-          }
-        } catch (error) {
-          console.error("Error in auth state change:", error);
-          if (mounted) {
-            setUser(null);
-            setIsLoading(false);
-          }
-        }
+        }, 0);
       } else if (mounted) {
         setUser(null);
         setIsLoading(false);
@@ -94,7 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const checkSession = async () => {
       try {
         console.log("Checking auth session...");
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        const { data: { session: existingSession }, error: sessionError } = await authService.checkSession();
         
         if (!mounted) return;
 
@@ -104,38 +89,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return;
         }
 
-        if (!session) {
+        if (!existingSession) {
           console.log("No session found, setting loading to false");
           setIsLoading(false);
           return;
         }
 
+        setSession(existingSession);
+
         console.log("Session found, fetching profile data...");
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
+        const profileData = await authService.fetchUserProfile(existingSession.user.id);
 
         if (!mounted) return;
 
-        if (profileError) {
-          console.error("Profile fetch error:", profileError);
-          setIsLoading(false);
-          return;
-        }
-
         if (profileData) {
           console.log("Profile data found, setting user...");
-          setUser({
-            id: session.user.id,
-            email: session.user.email || '',
-            name: profileData.name || '',
-            role: profileData.role as UserRole,
-            branch: profileData.branch_id || '',
-            avatar: profileData.avatar || '',
-            createdAt: new Date(session.user.created_at),
-          });
+          setUser(profileData);
         }
         
       } catch (error) {
@@ -156,14 +125,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const handleLogin = async (email: string, password: string) => {
     try {
       console.log("Attempting login...");
       setIsLoading(true);
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { data, error } = await authService.login(email, password);
 
       if (error) throw error;
 
@@ -186,19 +152,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (email: string, password: string, name: string) => {
+  const handleRegister = async (email: string, password: string, name: string) => {
     try {
       console.log("Attempting registration...");
       setIsLoading(true);
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            name: name,
-          }
-        }
-      });
+      const { data, error } = await authService.register(email, password, name);
 
       if (error) throw error;
 
@@ -221,11 +179,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = async () => {
+  const handleLogout = async () => {
     try {
       console.log("Logging out...");
       setIsLoading(true);
-      const { error } = await supabase.auth.signOut();
+      const { error } = await authService.logout();
       
       if (error) {
         console.error("Logout error:", error);
@@ -238,6 +196,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       setUser(null);
+      setSession(null);
       toast({
         title: "Logged out",
         description: "You have been successfully logged out"
@@ -260,14 +219,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         isAuthenticated: !!user,
         isLoading,
-        login,
-        logout,
-        register,
+        login: handleLogin,
+        logout: handleLogout,
+        register: handleRegister,
       }}
     >
       {children}
     </AuthContext.Provider>
   );
 };
-
-export const useAuth = () => useContext(AuthContext);
