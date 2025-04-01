@@ -1,6 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
-import { mockClients } from '@/data/mockData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
@@ -37,9 +37,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from '@/components/ui/badge';
-import { Label } from '@/components/ui/label';
 import { Client, ClientStatus } from '@/types/client';
-import { Plus, Search, MoreHorizontal, FileEdit, Trash, Eye } from 'lucide-react';
+import { Plus, Search, MoreHorizontal, FileEdit, Trash, Eye, Eraser } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -49,6 +48,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
+import { deleteAllClientsExcept, transformClientData, updateClient } from '@/utils/clientUtils';
 
 const clientSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -63,6 +63,7 @@ const clientSchema = z.object({
   incomeSource: z.string().min(1, "Income source is required"),
   monthlyIncome: z.coerce.number().min(0, "Monthly income must be positive"),
   branchId: z.string().min(1, "Branch is required"),
+  status: z.enum(["ACTIVE", "INACTIVE", "BLACKLISTED", "PENDING"]).optional(),
 });
 
 type ClientFormValues = z.infer<typeof clientSchema>;
@@ -75,6 +76,10 @@ const Clients = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [branches, setBranches] = useState<{id: string, name: string}[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [currentClient, setCurrentClient] = useState<Client | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<ClientFormValues>({
@@ -92,6 +97,7 @@ const Clients = () => {
       incomeSource: "",
       monthlyIncome: 0,
       branchId: "",
+      status: "ACTIVE",
     }
   });
 
@@ -108,25 +114,7 @@ const Clients = () => {
           throw error;
         }
         
-        const transformedData = data.map((client): Client => ({
-          id: client.id,
-          firstName: client.first_name,
-          lastName: client.last_name,
-          email: client.email || undefined,
-          phone: client.phone,
-          address: client.address,
-          nationalId: client.national_id,
-          dateOfBirth: new Date(client.date_of_birth),
-          gender: client.gender as 'male' | 'female' | 'other',
-          occupation: client.occupation,
-          incomeSource: client.income_source,
-          monthlyIncome: Number(client.monthly_income),
-          branchId: client.branch_id,
-          createdAt: new Date(client.created_at),
-          updatedAt: new Date(client.updated_at),
-          status: client.status as ClientStatus,
-          photo: client.photo || undefined,
-        }));
+        const transformedData = data.map(client => transformClientData(client));
         
         setClientData(transformedData);
       } catch (error) {
@@ -170,75 +158,185 @@ const Clients = () => {
     fetchBranches();
   }, [toast]);
 
+  // Reset form when opening in add mode
+  useEffect(() => {
+    if (isDialogOpen && !isEditMode) {
+      form.reset({
+        firstName: "",
+        lastName: "",
+        email: "",
+        phone: "",
+        address: "",
+        nationalId: "",
+        dateOfBirth: "",
+        gender: "male",
+        occupation: "",
+        incomeSource: "",
+        monthlyIncome: 0,
+        branchId: "",
+      });
+    }
+  }, [isDialogOpen, isEditMode, form]);
+
+  // Set form values when editing
+  useEffect(() => {
+    if (isEditMode && currentClient) {
+      form.reset({
+        firstName: currentClient.firstName,
+        lastName: currentClient.lastName,
+        email: currentClient.email || "",
+        phone: currentClient.phone,
+        address: currentClient.address,
+        nationalId: currentClient.nationalId,
+        dateOfBirth: currentClient.dateOfBirth.toISOString().split('T')[0],
+        gender: currentClient.gender,
+        occupation: currentClient.occupation,
+        incomeSource: currentClient.incomeSource,
+        monthlyIncome: currentClient.monthlyIncome,
+        branchId: currentClient.branchId,
+        status: currentClient.status,
+      });
+    }
+  }, [isEditMode, currentClient, form]);
+
+  const handleDeleteAllExcept = async () => {
+    try {
+      setIsDeletingAll(true);
+      const result = await deleteAllClientsExcept("James");
+      
+      if (result.success) {
+        // Refresh client list
+        const { data, error } = await supabase
+          .from('clients')
+          .select('*')
+          .order('created_at', { ascending: false });
+          
+        if (error) {
+          throw error;
+        }
+        
+        const transformedData = data.map(client => transformClientData(client));
+        setClientData(transformedData);
+        
+        toast({
+          title: "Clients deleted",
+          description: result.message,
+        });
+      } else {
+        toast({
+          title: "Error deleting clients",
+          description: result.message,
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error('Error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeletingAll(false);
+      setDeleteDialogOpen(false);
+    }
+  };
+
   const onSubmit = async (data: ClientFormValues) => {
     try {
       setIsSubmitting(true);
       
-      const newClient = {
-        first_name: data.firstName,
-        last_name: data.lastName,
-        email: data.email || null,
-        phone: data.phone,
-        address: data.address,
-        national_id: data.nationalId,
-        date_of_birth: data.dateOfBirth,
-        gender: data.gender,
-        occupation: data.occupation,
-        income_source: data.incomeSource,
-        monthly_income: data.monthlyIncome,
-        branch_id: data.branchId,
-        status: 'ACTIVE',
-      };
-      
-      const { data: clientData, error } = await supabase
-        .from('clients')
-        .insert([newClient])
-        .select();
+      if (isEditMode && currentClient) {
+        // Update existing client
+        const updatedClient = {
+          ...currentClient,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          email: data.email || undefined,
+          phone: data.phone,
+          address: data.address,
+          nationalId: data.nationalId,
+          dateOfBirth: new Date(data.dateOfBirth),
+          gender: data.gender as 'male' | 'female' | 'other',
+          occupation: data.occupation,
+          incomeSource: data.incomeSource,
+          monthlyIncome: data.monthlyIncome,
+          branchId: data.branchId,
+          status: data.status || currentClient.status,
+        };
         
-      if (error) {
-        throw error;
+        const result = await updateClient(updatedClient);
+        
+        if (result.success && result.data) {
+          setClientData(prev => 
+            prev.map(client => client.id === result.data!.id ? result.data! : client)
+          );
+          
+          toast({
+            title: "Client updated successfully",
+            description: `${data.firstName} ${data.lastName}'s information has been updated`,
+          });
+        } else {
+          throw new Error(result.message);
+        }
+      } else {
+        // Add new client
+        const newClient = {
+          first_name: data.firstName,
+          last_name: data.lastName,
+          email: data.email || null,
+          phone: data.phone,
+          address: data.address,
+          national_id: data.nationalId,
+          date_of_birth: data.dateOfBirth,
+          gender: data.gender,
+          occupation: data.occupation,
+          income_source: data.incomeSource,
+          monthly_income: data.monthlyIncome,
+          branch_id: data.branchId,
+          status: 'ACTIVE',
+        };
+        
+        const { data: clientData, error } = await supabase
+          .from('clients')
+          .insert([newClient])
+          .select();
+          
+        if (error) {
+          throw error;
+        }
+        
+        const newClientTransformed = transformClientData(clientData[0]);
+        
+        setClientData(prev => [newClientTransformed, ...prev]);
+        
+        toast({
+          title: "Client added successfully",
+          description: `${data.firstName} ${data.lastName} has been added to the system`,
+        });
       }
       
-      const newClientTransformed: Client = {
-        id: clientData[0].id,
-        firstName: clientData[0].first_name,
-        lastName: clientData[0].last_name,
-        email: clientData[0].email || undefined,
-        phone: clientData[0].phone,
-        address: clientData[0].address,
-        nationalId: clientData[0].national_id,
-        dateOfBirth: new Date(clientData[0].date_of_birth),
-        gender: clientData[0].gender as 'male' | 'female' | 'other',
-        occupation: clientData[0].occupation,
-        incomeSource: clientData[0].income_source,
-        monthlyIncome: Number(clientData[0].monthly_income),
-        branchId: clientData[0].branch_id,
-        createdAt: new Date(clientData[0].created_at),
-        updatedAt: new Date(clientData[0].updated_at),
-        status: clientData[0].status as ClientStatus,
-        photo: clientData[0].photo || undefined,
-      };
-      
-      setClientData(prev => [newClientTransformed, ...prev]);
-      
-      toast({
-        title: "Client added successfully",
-        description: `${data.firstName} ${data.lastName} has been added to the system`,
-      });
-      
       setIsDialogOpen(false);
+      setIsEditMode(false);
+      setCurrentClient(null);
       form.reset();
       
     } catch (error: any) {
-      console.error('Error adding client:', error);
+      console.error('Error saving client:', error);
       toast({
-        title: "Error adding client",
-        description: error.message || "There was a problem adding the client",
+        title: isEditMode ? "Error updating client" : "Error adding client",
+        description: error.message || "There was a problem saving the client data",
         variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleEdit = (client: Client) => {
+    setCurrentClient(client);
+    setIsEditMode(true);
+    setIsDialogOpen(true);
   };
 
   const handleDelete = async (clientId: string, clientName: string) => {
@@ -289,6 +387,9 @@ const Clients = () => {
     }
   };
 
+  const dialogTitle = isEditMode ? "Edit Client" : "Add New Client";
+  const dialogButtonText = isEditMode ? "Update Client" : "Save Client";
+  
   return (
     <AppLayout>
       <div className="flex justify-between items-center mb-6">
@@ -297,232 +398,300 @@ const Clients = () => {
           <p className="text-muted-foreground">Manage your client database</p>
         </div>
         
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="flex items-center gap-1">
-              <Plus className="h-4 w-4" />
-              <span>Add Client</span>
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle>Add New Client</DialogTitle>
-            </DialogHeader>
-            
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="firstName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>First Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter first name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="lastName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Last Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter last name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <Input type="email" placeholder="Enter email address" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="phone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Phone Number</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter phone number" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="nationalId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>National ID</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter national ID" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="dateOfBirth"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Date of Birth</FormLabel>
-                        <FormControl>
-                          <Input type="date" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="gender"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Gender</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                        >
+        <div className="flex gap-2">
+          <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" className="flex items-center gap-1">
+                <Eraser className="h-4 w-4" />
+                <span>Delete All Except James</span>
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete All Clients Except James</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action will delete ALL clients except those with "James" in their name.
+                  This cannot be undone. Are you sure you want to continue?
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction 
+                  className="bg-red-600 hover:bg-red-700"
+                  onClick={handleDeleteAllExcept}
+                  disabled={isDeletingAll}
+                >
+                  {isDeletingAll ? "Deleting..." : "Delete All Except James"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) {
+              setIsEditMode(false);
+              setCurrentClient(null);
+            }
+          }}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center gap-1">
+                <Plus className="h-4 w-4" />
+                <span>Add Client</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[600px]">
+              <DialogHeader>
+                <DialogTitle>{dialogTitle}</DialogTitle>
+              </DialogHeader>
+              
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="firstName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>First Name</FormLabel>
                           <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select gender" />
-                            </SelectTrigger>
+                            <Input placeholder="Enter first name" {...field} />
                           </FormControl>
-                          <SelectContent>
-                            <SelectItem value="male">Male</SelectItem>
-                            <SelectItem value="female">Female</SelectItem>
-                            <SelectItem value="other">Other</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="occupation"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Occupation</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter occupation" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="incomeSource"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Income Source</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter income source" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="monthlyIncome"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Monthly Income</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            placeholder="0.00"
-                            {...field}
-                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="branchId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Branch</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                        >
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="lastName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Last Name</FormLabel>
                           <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select branch" />
-                            </SelectTrigger>
+                            <Input placeholder="Enter last name" {...field} />
                           </FormControl>
-                          <SelectContent>
-                            {branches.map(branch => (
-                              <SelectItem key={branch.id} value={branch.id}>
-                                {branch.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email</FormLabel>
+                          <FormControl>
+                            <Input type="email" placeholder="Enter email address" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="phone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Phone Number</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter phone number" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="nationalId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>National ID</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter national ID" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="dateOfBirth"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Date of Birth</FormLabel>
+                          <FormControl>
+                            <Input type="date" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="gender"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Gender</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select gender" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="male">Male</SelectItem>
+                              <SelectItem value="female">Female</SelectItem>
+                              <SelectItem value="other">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="occupation"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Occupation</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter occupation" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="incomeSource"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Income Source</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter income source" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="monthlyIncome"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Monthly Income</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              placeholder="0.00"
+                              {...field}
+                              onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="branchId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Branch</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select branch" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {branches.map(branch => (
+                                <SelectItem key={branch.id} value={branch.id}>
+                                  {branch.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    {isEditMode && (
+                      <FormField
+                        control={form.control}
+                        name="status"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Status</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
+                              value={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select status" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="ACTIVE">Active</SelectItem>
+                                <SelectItem value="INACTIVE">Inactive</SelectItem>
+                                <SelectItem value="BLACKLISTED">Blacklisted</SelectItem>
+                                <SelectItem value="PENDING">Pending</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     )}
-                  />
+                    
+                    <FormField
+                      control={form.control}
+                      name="address"
+                      render={({ field }) => (
+                        <FormItem className="col-span-2">
+                          <FormLabel>Address</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter address" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                   
-                  <FormField
-                    control={form.control}
-                    name="address"
-                    render={({ field }) => (
-                      <FormItem className="col-span-2">
-                        <FormLabel>Address</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter address" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                
-                <DialogFooter>
-                  <Button variant="outline" type="button" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? "Saving..." : "Save Client"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-            
-          </DialogContent>
-        </Dialog>
+                  <DialogFooter>
+                    <Button variant="outline" type="button" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                    <Button type="submit" disabled={isSubmitting}>
+                      {isSubmitting ? "Saving..." : dialogButtonText}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </Form>
+              
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg border">
@@ -668,7 +837,7 @@ const Clients = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem className="flex gap-2">
+                          <DropdownMenuItem className="flex gap-2" onClick={() => handleEdit(client)}>
                             <FileEdit className="h-4 w-4" />
                             Edit
                           </DropdownMenuItem>
