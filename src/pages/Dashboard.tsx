@@ -161,12 +161,12 @@ const Dashboard = () => {
 
   return (
     <AppLayout>
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">Welcome to your microcredit finance system.</p>
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">Welcome to your microcredit finance system.</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-6">
+      <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6 mb-4 sm:mb-6">
         <StatCard
           title="Active Clients"
           value={stats.activeClients}
@@ -193,14 +193,14 @@ const Dashboard = () => {
         />
       </div>
 
-      <div className="mb-6">
-        <div className="bg-white rounded-lg border p-4">
+      <div className="mb-4 sm:mb-6">
+        <div className="bg-white rounded-lg border p-3 sm:p-4">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-2">
             <div>
-              <h3 className="text-sm font-medium text-muted-foreground">Monthly Repayment Progress</h3>
+              <h3 className="text-xs sm:text-sm font-medium text-muted-foreground">Monthly Repayment Progress</h3>
               <div className="flex items-end gap-1">
-                <h2 className="text-2xl font-bold">{formatCurrency(stats.totalReceivedThisMonth)}</h2>
-                <p className="text-muted-foreground text-sm mb-1">of {formatCurrency(stats.totalExpectedThisMonth)}</p>
+                <h2 className="text-xl sm:text-2xl font-bold">{formatCurrency(stats.totalReceivedThisMonth)}</h2>
+                <p className="text-xs sm:text-sm text-muted-foreground mb-1">of {formatCurrency(stats.totalExpectedThisMonth)}</p>
               </div>
             </div>
             <div className="mt-2 md:mt-0 flex items-center">
@@ -211,8 +211,8 @@ const Dashboard = () => {
               )}
               <span 
                 className={stats.repaymentRate < 85 ? 
-                  "text-amber-500 text-sm font-medium" : 
-                  "text-emerald-500 text-sm font-medium"
+                  "text-amber-500 text-xs sm:text-sm font-medium" : 
+                  "text-emerald-500 text-xs sm:text-sm font-medium"
                 }
               >
                 {stats.repaymentRate.toFixed(1)}% repayment rate
@@ -223,12 +223,14 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <DisbursementChart data={stats.dailyData} />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6 mb-4 sm:mb-6">
+        <div className="lg:col-span-2">
+          <DisbursementChart data={stats.dailyData} />
+        </div>
         {loanStatusData && <LoanStatusChart data={loanStatusData} />}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6">
         <RecentActivities activities={recentActivities} />
       </div>
     </AppLayout>

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Sidebar,
@@ -12,8 +12,10 @@ import {
   SidebarMenu,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
-import { DollarSign, LogOut, Settings, BadgeDollarSign, Wallet } from 'lucide-react';
+import { DollarSign, LogOut, Settings, BadgeDollarSign, Wallet, Menu } from 'lucide-react';
 import { useAuth } from '@/contexts/auth';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Button } from '@/components/ui/button';
 
 // Import our components and data
 import { SimpleMenuItem } from './SimpleMenuItem';
@@ -31,12 +33,22 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout } = useAuth();
+  const isMobile = useIsMobile();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
     loans: location.pathname.includes('/loans'),
     payroll: location.pathname.includes('/payroll'),
     expenses: location.pathname.includes('/expenses'),
     settings: location.pathname.includes('/settings'),
   });
+
+  // Close sidebar on route change on mobile
+  useEffect(() => {
+    if (isMobile) {
+      setSidebarOpen(false);
+    }
+  }, [location.pathname, isMobile]);
 
   const toggleMenu = (menu: string) => {
     setExpandedMenus(prev => ({
@@ -55,10 +67,11 @@ export function AppSidebar() {
       <SidebarHeader className="p-4 flex items-center">
         <div className="flex gap-2 items-center">
           <DollarSign className="h-6 w-6 text-sidebar-primary" />
-          <span className="font-bold text-xl text-sidebar-primary">Muchiri LoanLight SACCO</span>
+          <span className="font-bold text-xl text-sidebar-primary hidden sm:inline">Muchiri LoanLight</span>
+          <span className="font-bold text-xl text-sidebar-primary sm:hidden">LoanLight</span>
         </div>
-        <div className="ml-auto md:hidden">
-          <SidebarTrigger />
+        <div className="ml-auto">
+          <SidebarTrigger aria-label="Toggle sidebar menu" />
         </div>
       </SidebarHeader>
       
@@ -141,6 +154,7 @@ export function AppSidebar() {
         <button
           onClick={handleLogout}
           className="flex items-center gap-2 text-sidebar-primary opacity-70 hover:opacity-100 transition-opacity w-full px-3 py-2"
+          aria-label="Logout"
         >
           <LogOut className="h-5 w-5" />
           <span>Logout</span>
