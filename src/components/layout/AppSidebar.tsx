@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -10,38 +9,22 @@ import {
   SidebarGroupContent,
   SidebarHeader,
   SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
   SidebarTrigger,
-  SidebarMenuSub,
-  SidebarMenuSubItem,
-  SidebarMenuSubButton,
-  SidebarMenuAction,
 } from '@/components/ui/sidebar';
-import {
-  BarChart3,
-  Users,
-  DollarSign,
-  Home,
-  Building2,
-  LogOut,
-  Settings,
-  Wallet,
-  Calculator,
-  CreditCard,
-  PieChart,
-  ChevronDown,
-  ChevronRight,
-  Receipt,
-  BadgeDollarSign,
-  User,
-  Mail,
-  MessageSquare,
-  MonitorSmartphone,
-  RefreshCw,
-  MoreHorizontal,
-} from 'lucide-react';
+import { DollarSign, LogOut, Settings, BadgeDollarSign, Wallet } from 'lucide-react';
 import { useAuth } from '@/contexts/auth';
+
+// Import our components and data
+import { SimpleMenuItem } from './SimpleMenuItem';
+import { CollapsibleMenuItem } from './CollapsibleMenuItem';
+import { 
+  mainMenuItems, 
+  loanMenuItems, 
+  payrollMenuItems, 
+  expenseMenuItems,
+  settingsMenuItems, 
+  otherMenuItems 
+} from './sidebar-data';
 
 export function AppSidebar() {
   const navigate = useNavigate();
@@ -61,71 +44,9 @@ export function AppSidebar() {
     }));
   };
 
-  const mainMenuItems = [
-    {
-      title: 'Dashboard',
-      path: '/dashboard',
-      icon: Home,
-    },
-    {
-      title: 'Clients',
-      path: '/clients',
-      icon: Users,
-    },
-  ];
-
-  const loanMenuItems = [
-    { title: 'View Loans', path: '/loans', icon: DollarSign },
-    { title: 'View Applications', path: '/loans/applications', icon: Receipt },
-    { title: 'Create Loan', path: '/loans/create', icon: CreditCard },
-    { title: 'Manage Products', path: '/loans/products', icon: BadgeDollarSign },
-    { title: 'Manage Charges', path: '/loans/charges', icon: Wallet },
-    { title: 'Loan Calculator', path: '/loans/calculator', icon: Calculator },
-  ];
-
-  const payrollMenuItems = [
-    { title: 'View Payroll', path: '/payroll', icon: BadgeDollarSign },
-    { title: 'Create Payroll', path: '/payroll/create', icon: DollarSign },
-    { title: 'Manage Payroll Items', path: '/payroll/items', icon: Receipt },
-    { title: 'Manage Payroll Templates', path: '/payroll/templates', icon: PieChart },
-  ];
-
-  const expenseMenuItems = [
-    { title: 'View Expenses', path: '/expenses', icon: Wallet },
-    { title: 'Create Expense', path: '/expenses/create', icon: CreditCard },
-    { title: 'Manage Expense Types', path: '/expenses/types', icon: PieChart },
-  ];
-
-  const settingsMenuItems = [
-    { title: 'Organisation Settings', path: '/settings/organization', icon: Building2 },
-    { title: 'General Settings', path: '/settings/general', icon: Settings },
-    { title: 'Email Settings', path: '/settings/email', icon: Mail },
-    { title: 'SMS Settings', path: '/settings/sms', icon: MessageSquare },
-    { title: 'System Settings', path: '/settings/system', icon: MonitorSmartphone },
-    { title: 'System Update', path: '/settings/update', icon: RefreshCw },
-    { title: 'Other Settings', path: '/settings/other', icon: MoreHorizontal },
-  ];
-
-  const otherMenuItems = [
-    {
-      title: 'Branches',
-      path: '/branches',
-      icon: Building2,
-    },
-    {
-      title: 'Reports',
-      path: '/reports',
-      icon: BarChart3,
-    },
-  ];
-
   const handleLogout = () => {
     logout();
     navigate('/login');
-  };
-
-  const isActive = (path: string) => {
-    return location.pathname === path;
   };
 
   return (
@@ -147,113 +68,51 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
+              {/* Main Menu Items */}
               {mainMenuItems.map((item) => (
-                <SidebarMenuItem key={item.path}>
-                  <SidebarMenuButton
-                    isActive={isActive(item.path)}
-                    onClick={() => navigate(item.path)}
-                  >
-                    <item.icon className="h-5 w-5" />
-                    <span>{item.title}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                <SimpleMenuItem
+                  key={item.path}
+                  title={item.title}
+                  path={item.path}
+                  icon={item.icon}
+                />
               ))}
               
               {/* Loans Menu with Submenu */}
-              <SidebarMenuItem>
-                <SidebarMenuButton onClick={() => toggleMenu('loans')}>
-                  <DollarSign className="h-5 w-5" />
-                  <span>Loans</span>
-                  {expandedMenus.loans ? (
-                    <ChevronDown className="ml-auto h-4 w-4" />
-                  ) : (
-                    <ChevronRight className="ml-auto h-4 w-4" />
-                  )}
-                </SidebarMenuButton>
-                {expandedMenus.loans && (
-                  <SidebarMenuSub>
-                    {loanMenuItems.map((item) => (
-                      <SidebarMenuSubItem key={item.path}>
-                        <SidebarMenuSubButton
-                          isActive={isActive(item.path)}
-                          onClick={() => navigate(item.path)}
-                        >
-                          <item.icon className="h-4 w-4" />
-                          <span>{item.title}</span>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    ))}
-                  </SidebarMenuSub>
-                )}
-              </SidebarMenuItem>
+              <CollapsibleMenuItem
+                title="Loans"
+                icon={DollarSign}
+                items={loanMenuItems}
+                isExpanded={expandedMenus.loans}
+                toggleMenu={() => toggleMenu('loans')}
+              />
 
               {/* Payroll Menu with Submenu */}
-              <SidebarMenuItem>
-                <SidebarMenuButton onClick={() => toggleMenu('payroll')}>
-                  <BadgeDollarSign className="h-5 w-5" />
-                  <span>Payroll</span>
-                  {expandedMenus.payroll ? (
-                    <ChevronDown className="ml-auto h-4 w-4" />
-                  ) : (
-                    <ChevronRight className="ml-auto h-4 w-4" />
-                  )}
-                </SidebarMenuButton>
-                {expandedMenus.payroll && (
-                  <SidebarMenuSub>
-                    {payrollMenuItems.map((item) => (
-                      <SidebarMenuSubItem key={item.path}>
-                        <SidebarMenuSubButton
-                          isActive={isActive(item.path)}
-                          onClick={() => navigate(item.path)}
-                        >
-                          <item.icon className="h-4 w-4" />
-                          <span>{item.title}</span>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    ))}
-                  </SidebarMenuSub>
-                )}
-              </SidebarMenuItem>
+              <CollapsibleMenuItem
+                title="Payroll"
+                icon={BadgeDollarSign}
+                items={payrollMenuItems}
+                isExpanded={expandedMenus.payroll}
+                toggleMenu={() => toggleMenu('payroll')}
+              />
 
               {/* Expenses Menu with Submenu */}
-              <SidebarMenuItem>
-                <SidebarMenuButton onClick={() => toggleMenu('expenses')}>
-                  <Wallet className="h-5 w-5" />
-                  <span>Expenses</span>
-                  {expandedMenus.expenses ? (
-                    <ChevronDown className="ml-auto h-4 w-4" />
-                  ) : (
-                    <ChevronRight className="ml-auto h-4 w-4" />
-                  )}
-                </SidebarMenuButton>
-                {expandedMenus.expenses && (
-                  <SidebarMenuSub>
-                    {expenseMenuItems.map((item) => (
-                      <SidebarMenuSubItem key={item.path}>
-                        <SidebarMenuSubButton
-                          isActive={isActive(item.path)}
-                          onClick={() => navigate(item.path)}
-                        >
-                          <item.icon className="h-4 w-4" />
-                          <span>{item.title}</span>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    ))}
-                  </SidebarMenuSub>
-                )}
-              </SidebarMenuItem>
+              <CollapsibleMenuItem
+                title="Expenses"
+                icon={Wallet}
+                items={expenseMenuItems}
+                isExpanded={expandedMenus.expenses}
+                toggleMenu={() => toggleMenu('expenses')}
+              />
 
               {/* Other Menu Items */}
               {otherMenuItems.map((item) => (
-                <SidebarMenuItem key={item.path}>
-                  <SidebarMenuButton
-                    isActive={isActive(item.path)}
-                    onClick={() => navigate(item.path)}
-                  >
-                    <item.icon className="h-5 w-5" />
-                    <span>{item.title}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                <SimpleMenuItem
+                  key={item.path}
+                  title={item.title}
+                  path={item.path}
+                  icon={item.icon}
+                />
               ))}
             </SidebarMenu>
           </SidebarGroupContent>
@@ -265,35 +124,13 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton 
-                  isActive={location.pathname.includes('/settings')}
-                  onClick={() => toggleMenu('settings')}
-                >
-                  <Settings className="h-5 w-5" />
-                  <span>Settings</span>
-                  {expandedMenus.settings ? (
-                    <ChevronDown className="ml-auto h-4 w-4" />
-                  ) : (
-                    <ChevronRight className="ml-auto h-4 w-4" />
-                  )}
-                </SidebarMenuButton>
-                {expandedMenus.settings && (
-                  <SidebarMenuSub>
-                    {settingsMenuItems.map((item) => (
-                      <SidebarMenuSubItem key={item.path}>
-                        <SidebarMenuSubButton
-                          isActive={isActive(item.path)}
-                          onClick={() => navigate(item.path)}
-                        >
-                          <item.icon className="h-4 w-4" />
-                          <span>{item.title}</span>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    ))}
-                  </SidebarMenuSub>
-                )}
-              </SidebarMenuItem>
+              <CollapsibleMenuItem
+                title="Settings"
+                icon={Settings}
+                items={settingsMenuItems}
+                isExpanded={expandedMenus.settings}
+                toggleMenu={() => toggleMenu('settings')}
+              />
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
