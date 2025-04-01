@@ -91,9 +91,18 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
-        <AppSidebar />
+        {/* Regular sidebar for desktop */}
+        <div className="hidden md:block">
+          <AppSidebar />
+        </div>
+        
+        {/* Content area with mobile menu */}
         <div className="flex-1 p-0 overflow-auto">
-          <div className="container p-6 mx-auto">
+          {/* Mobile menu is included inside AppSidebar component */}
+          <div className="md:hidden">
+            <AppSidebar />
+          </div>
+          <div className="container p-6 mx-auto pt-14 md:pt-6">
             {children}
           </div>
         </div>

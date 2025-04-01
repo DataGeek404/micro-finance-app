@@ -3,6 +3,7 @@
 body {
   margin: 0;
   font-family: system-ui, -apple-system, sans-serif;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .logo {
@@ -32,5 +33,13 @@ body {
 @media (prefers-reduced-motion: no-preference) {
   a:nth-of-type(2) .logo {
     animation: logo-spin infinite 20s linear;
+  }
+}
+
+/* Mobile optimizations */
+@media (max-width: 640px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
   }
 }
