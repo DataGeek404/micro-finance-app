@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { DollarSign, LogIn, UserPlus } from 'lucide-react';
+import { DollarSign, LogIn, UserPlus, AlertTriangle, RefreshCcw } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/auth';
 import { useToast } from '@/hooks/use-toast';
@@ -13,6 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
@@ -30,9 +31,11 @@ type SignupFormValues = z.infer<typeof signupSchema>;
 
 const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { login, register, isAuthenticated } = useAuth();
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
 
   const loginForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -59,12 +62,14 @@ const Login = () => {
 
   const handleLogin = async (values: LoginFormValues) => {
     setIsLoading(true);
-
+    setError(null);
+    
     try {
       await login(values.email, values.password);
       navigate('/dashboard');
     } catch (error) {
       console.error('Login error:', error);
+      setError(error instanceof Error ? error.message : "Failed to login. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -72,7 +77,8 @@ const Login = () => {
 
   const handleSignup = async (values: SignupFormValues) => {
     setIsLoading(true);
-
+    setError(null);
+    
     try {
       await register(values.email, values.password, values.name);
       toast({
@@ -82,11 +88,21 @@ const Login = () => {
       });
       loginForm.setValue('email', values.email);
       loginForm.setValue('password', values.password);
+      setActiveTab('login');
     } catch (error) {
       console.error('Signup error:', error);
+      setError(error instanceof Error ? error.message : "Failed to create account. Please try again.");
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleRefresh = () => {
+    window.location.reload();
+  };
+
+  const clearError = () => {
+    setError(null);
   };
 
   return (
@@ -103,7 +119,42 @@ const Login = () => {
             <CardDescription>Your microcredit finance system</CardDescription>
           </CardHeader>
           
-          <Tabs defaultValue="login" className="w-full">
+          {error && (
+            <Alert variant="destructive" className="mx-6 mb-4">
+              <AlertTriangle className="h-4 w-4 mr-2" />
+              <AlertDescription className="flex flex-col gap-2">
+                <p>{error}</p>
+                <div className="flex gap-2 mt-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={clearError}
+                    className="text-xs px-2 py-1 h-8"
+                  >
+                    Dismiss
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleRefresh}
+                    className="text-xs px-2 py-1 h-8"
+                  >
+                    <RefreshCcw className="h-3 w-3 mr-1" /> Refresh Page
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          <Tabs 
+            defaultValue="login" 
+            value={activeTab} 
+            onValueChange={(value) => {
+              setActiveTab(value as 'login' | 'signup');
+              setError(null);
+            }}
+            className="w-full"
+          >
             <TabsList className="grid grid-cols-2 w-full rounded-none border-b">
               <TabsTrigger value="login">Login</TabsTrigger>
               <TabsTrigger value="signup">Sign Up</TabsTrigger>
