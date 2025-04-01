@@ -1,7 +1,6 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
-import { mockBranches } from '@/data/mockData';
 import { Button } from '@/components/ui/button';
 import { 
   Card,
@@ -13,7 +12,7 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { BranchStatus } from '@/types/branch';
-import { Building2, Users, Phone, Mail, Calendar, MapPin, Plus } from 'lucide-react';
+import { Building2, Users, Phone, Mail, Calendar, MapPin, Plus, Loader2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -24,8 +23,131 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from "@/hooks/use-toast";
+import { useForm } from 'react-hook-form';
+import { format } from 'date-fns';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
+
+// Define the schema for branch form
+const branchSchema = z.object({
+  name: z.string().min(1, "Branch name is required"),
+  location: z.string().min(1, "Location is required"),
+  address: z.string().min(1, "Address is required"),
+  phone: z.string().min(1, "Phone number is required"),
+  email: z.string().email("Invalid email").optional().or(z.literal("")),
+  managerName: z.string().min(1, "Manager name is required"),
+  managerId: z.string().min(1, "Manager ID is required"),
+  status: z.enum(["ACTIVE", "INACTIVE", "PENDING"]),
+  openingDate: z.string().min(1, "Opening date is required")
+});
+
+type BranchFormValues = z.infer<typeof branchSchema>;
 
 const Branches = () => {
+  const [branches, setBranches] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
+
+  const form = useForm<BranchFormValues>({
+    resolver: zodResolver(branchSchema),
+    defaultValues: {
+      name: "",
+      location: "",
+      address: "",
+      phone: "",
+      email: "",
+      managerName: "",
+      managerId: "",
+      status: "PENDING",
+      openingDate: format(new Date(), "yyyy-MM-dd")
+    },
+  });
+
+  useEffect(() => {
+    fetchBranches();
+  }, []);
+
+  const fetchBranches = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('branches')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setBranches(data || []);
+    } catch (error) {
+      console.error('Error fetching branches:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load branches",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (values: BranchFormValues) => {
+    setIsSubmitting(true);
+    try {
+      // Convert form values to match the database schema
+      const branchData = {
+        name: values.name,
+        location: values.location,
+        address: values.address,
+        phone: values.phone,
+        email: values.email || null,
+        manager_name: values.managerName,
+        manager_id: values.managerId,
+        status: values.status,
+        opening_date: values.openingDate,
+        employee_count: 0 // Default value for new branches
+      };
+
+      const { error } = await supabase
+        .from('branches')
+        .insert(branchData);
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: "Branch created successfully",
+      });
+      
+      // Reset form and close dialog
+      form.reset();
+      setIsDialogOpen(false);
+      
+      // Refresh branches list
+      fetchBranches();
+      
+    } catch (error: any) {
+      console.error('Error creating branch:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create branch",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const getStatusColor = (status: BranchStatus) => {
     switch(status) {
       case BranchStatus.ACTIVE:
@@ -39,6 +161,14 @@ const Branches = () => {
     }
   };
 
+  const formatDate = (dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleDateString();
+    } catch (e) {
+      return dateString;
+    }
+  };
+
   return (
     <AppLayout>
       <div className="flex justify-between items-center mb-6">
@@ -47,7 +177,7 @@ const Branches = () => {
           <p className="text-muted-foreground">Manage your organization's branches</p>
         </div>
         
-        <Dialog>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button className="flex items-center gap-1">
               <Plus className="h-4 w-4" />
@@ -58,88 +188,225 @@ const Branches = () => {
             <DialogHeader>
               <DialogTitle>Add New Branch</DialogTitle>
             </DialogHeader>
-            <div className="grid grid-cols-2 gap-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Branch Name</Label>
-                <Input id="name" placeholder="Enter branch name" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="location">Location</Label>
-                <Input id="location" placeholder="Enter location" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input id="phone" placeholder="Enter phone number" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" placeholder="Enter email" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="manager">Manager Name</Label>
-                <Input id="manager" placeholder="Enter manager name" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="openingDate">Opening Date</Label>
-                <Input id="openingDate" type="date" />
-              </div>
-              <div className="col-span-2 space-y-2">
-                <Label htmlFor="address">Address</Label>
-                <Input id="address" placeholder="Enter address" />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline">Cancel</Button>
-              <Button>Save Branch</Button>
-            </DialogFooter>
+            
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Branch Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter branch name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="location"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Location</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter location" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone Number</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter phone number" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email (optional)</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="Enter email" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="managerName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Manager Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter manager name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="managerId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Manager ID</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter manager ID" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Status</FormLabel>
+                        <Select 
+                          onValueChange={field.onChange} 
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="ACTIVE">Active</SelectItem>
+                            <SelectItem value="INACTIVE">Inactive</SelectItem>
+                            <SelectItem value="PENDING">Pending</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="openingDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Opening Date</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="address"
+                    render={({ field }) => (
+                      <FormItem className="col-span-2">
+                        <FormLabel>Address</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter address" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <DialogFooter>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setIsDialogOpen(false)}
+                    disabled={isSubmitting}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Save Branch
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
           </DialogContent>
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {mockBranches.map((branch) => (
-          <Card key={branch.id} className="overflow-hidden">
-            <CardHeader className="pb-2">
-              <div className="flex justify-between items-start">
-                <CardTitle className="text-lg">{branch.name}</CardTitle>
-                <Badge className={getStatusColor(branch.status)} variant="outline">
-                  {branch.status}
-                </Badge>
-              </div>
-              <CardDescription className="flex items-center gap-1">
-                <MapPin className="h-3 w-3" /> {branch.location}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pb-2">
-              <div className="space-y-2 text-sm">
-                <div className="flex gap-2">
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                  <span>Manager: {branch.managerName}</span>
+      {loading ? (
+        <div className="flex justify-center items-center p-8">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : branches.length === 0 ? (
+        <div className="text-center p-8 border rounded-md bg-muted/20">
+          <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <h3 className="text-lg font-medium">No Branches Found</h3>
+          <p className="text-muted-foreground mt-2">Start by adding your first branch</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {branches.map((branch) => (
+            <Card key={branch.id} className="overflow-hidden">
+              <CardHeader className="pb-2">
+                <div className="flex justify-between items-start">
+                  <CardTitle className="text-lg">{branch.name}</CardTitle>
+                  <Badge className={getStatusColor(branch.status as BranchStatus)} variant="outline">
+                    {branch.status}
+                  </Badge>
                 </div>
-                <div className="flex gap-2">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
-                  <span>{branch.phone}</span>
+                <CardDescription className="flex items-center gap-1">
+                  <MapPin className="h-3 w-3" /> {branch.location}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pb-2">
+                <div className="space-y-2 text-sm">
+                  <div className="flex gap-2">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <span>Manager: {branch.manager_name}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <span>{branch.phone}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <span>{branch.email || 'No email'}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <span>Opened: {formatDate(branch.opening_date)}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Building2 className="h-4 w-4 text-muted-foreground" />
+                    <span>{branch.employee_count} employees</span>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <span>{branch.email || 'No email'}</span>
-                </div>
-                <div className="flex gap-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span>Opened: {branch.openingDate.toLocaleDateString()}</span>
-                </div>
-                <div className="flex gap-2">
-                  <Building2 className="h-4 w-4 text-muted-foreground" />
-                  <span>{branch.employeeCount} employees</span>
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter className="pt-2">
-              <Button variant="outline" className="w-full">View Details</Button>
-            </CardFooter>
-          </Card>
-        ))}
-      </div>
+              </CardContent>
+              <CardFooter className="pt-2">
+                <Button variant="outline" className="w-full">View Details</Button>
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      )}
     </AppLayout>
   );
 };
