@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -39,7 +38,6 @@ import {
   SelectValue 
 } from '@/components/ui/select';
 
-// Define the schema for branch form
 const branchSchema = z.object({
   name: z.string().min(1, "Branch name is required"),
   location: z.string().min(1, "Location is required"),
@@ -105,7 +103,6 @@ const Branches = () => {
   const handleSubmit = async (values: BranchFormValues) => {
     setIsSubmitting(true);
     try {
-      // Convert form values to match the database schema
       const branchData = {
         name: values.name,
         location: values.location,
@@ -116,7 +113,7 @@ const Branches = () => {
         manager_id: values.managerId,
         status: values.status,
         opening_date: values.openingDate,
-        employee_count: 0 // Default value for new branches
+        employee_count: 0
       };
 
       const { error } = await supabase
@@ -130,13 +127,10 @@ const Branches = () => {
         description: "Branch created successfully",
       });
       
-      // Reset form and close dialog
       form.reset();
       setIsDialogOpen(false);
       
-      // Refresh branches list
       fetchBranches();
-      
     } catch (error: any) {
       console.error('Error creating branch:', error);
       toast({
@@ -189,7 +183,8 @@ const Branches = () => {
             <DialogHeader>
               <DialogTitle>Add New Branch</DialogTitle>
               <DialogDescription>
-                Enter the branch details. Note: Manager ID must be a valid UUID format.
+                Enter the branch details. Manager ID must be a valid UUID format, 
+                like 550e8400-e29b-41d4-a716-446655440000.
               </DialogDescription>
             </DialogHeader>
             
