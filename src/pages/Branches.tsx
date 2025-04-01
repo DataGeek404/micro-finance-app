@@ -20,6 +20,7 @@ import {
   DialogTitle,
   DialogFooter,
   DialogTrigger,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -46,7 +47,7 @@ const branchSchema = z.object({
   phone: z.string().min(1, "Phone number is required"),
   email: z.string().email("Invalid email").optional().or(z.literal("")),
   managerName: z.string().min(1, "Manager name is required"),
-  managerId: z.string().min(1, "Manager ID is required"),
+  managerId: z.string().min(1, "Manager ID is required").uuid("Manager ID must be a valid UUID format"),
   status: z.enum(["ACTIVE", "INACTIVE", "PENDING"]),
   openingDate: z.string().min(1, "Opening date is required")
 });
@@ -187,6 +188,9 @@ const Branches = () => {
           <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
               <DialogTitle>Add New Branch</DialogTitle>
+              <DialogDescription>
+                Enter the branch details. Note: Manager ID must be a valid UUID format.
+              </DialogDescription>
             </DialogHeader>
             
             <Form {...form}>
@@ -267,9 +271,12 @@ const Branches = () => {
                     name="managerId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Manager ID</FormLabel>
+                        <FormLabel>Manager ID (UUID format)</FormLabel>
                         <FormControl>
-                          <Input placeholder="Enter manager ID" {...field} />
+                          <Input 
+                            placeholder="Enter UUID format manager ID" 
+                            {...field} 
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -401,7 +408,9 @@ const Branches = () => {
                 </div>
               </CardContent>
               <CardFooter className="pt-2">
-                <Button variant="outline" className="w-full">View Details</Button>
+                <Button variant="outline" className="w-full">
+                  View Details (KES)
+                </Button>
               </CardFooter>
             </Card>
           ))}
