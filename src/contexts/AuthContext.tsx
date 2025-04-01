@@ -23,50 +23,86 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     // Check for existing session
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-
-        if (profileData) {
-          setUser({
-            id: session.user.id,
-            email: session.user.email || '',
-            name: profileData.name || '',
-            role: profileData.role as UserRole,
-            branch: profileData.branch_id || '',
-            avatar: profileData.avatar || '',
-            createdAt: new Date(session.user.created_at),
-          });
+      try {
+        console.log("Checking auth session...");
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error("Session error:", sessionError);
+          setIsLoading(false);
+          return;
         }
+
+        if (session) {
+          console.log("Session found, fetching profile data...");
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+          if (profileError) {
+            console.error("Profile fetch error:", profileError);
+            setIsLoading(false);
+            return;
+          }
+
+          if (profileData) {
+            console.log("Profile data found, setting user...");
+            setUser({
+              id: session.user.id,
+              email: session.user.email || '',
+              name: profileData.name || '',
+              role: profileData.role as UserRole,
+              branch: profileData.branch_id || '',
+              avatar: profileData.avatar || '',
+              createdAt: new Date(session.user.created_at),
+            });
+          }
+        }
+        
+        // Always set loading to false, whether session exists or not
+        setIsLoading(false);
+      } catch (error) {
+        console.error("Session check failed:", error);
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
     checkSession();
 
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Auth state changed:", event);
+      
       if (session) {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
+        try {
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
 
-        if (profileData) {
-          setUser({
-            id: session.user.id,
-            email: session.user.email || '',
-            name: profileData.name || '',
-            role: profileData.role as UserRole,
-            branch: profileData.branch_id || '',
-            avatar: profileData.avatar || '',
-            createdAt: new Date(session.user.created_at),
-          });
+          if (profileError) {
+            console.error("Profile fetch error in state change:", profileError);
+            setUser(null);
+            return;
+          }
+
+          if (profileData) {
+            setUser({
+              id: session.user.id,
+              email: session.user.email || '',
+              name: profileData.name || '',
+              role: profileData.role as UserRole,
+              branch: profileData.branch_id || '',
+              avatar: profileData.avatar || '',
+              createdAt: new Date(session.user.created_at),
+            });
+          }
+        } catch (error) {
+          console.error("Error in auth state change:", error);
+          setUser(null);
         }
       } else {
         setUser(null);
@@ -80,6 +116,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string) => {
     try {
+      console.log("Attempting login...");
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -94,6 +131,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       return data;
     } catch (error) {
+      console.error("Login error:", error);
       toast({
         title: "Login failed",
         description: error instanceof Error ? error.message : "An error occurred",
@@ -105,6 +143,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = async (email: string, password: string, name: string) => {
     try {
+      console.log("Attempting registration...");
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -124,6 +163,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       return data;
     } catch (error) {
+      console.error("Registration error:", error);
       toast({
         title: "Registration failed",
         description: error instanceof Error ? error.message : "An error occurred",
@@ -134,22 +174,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
-    const { error } = await supabase.auth.signOut();
-    
-    if (error) {
+    try {
+      console.log("Logging out...");
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error("Logout error:", error);
+        toast({
+          title: "Error signing out",
+          description: error.message,
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      setUser(null);
+      toast({
+        title: "Logged out",
+        description: "You have been successfully logged out"
+      });
+    } catch (error) {
+      console.error("Unexpected logout error:", error);
       toast({
         title: "Error signing out",
-        description: error.message,
+        description: "An unexpected error occurred",
         variant: "destructive"
       });
-      return;
     }
-    
-    setUser(null);
-    toast({
-      title: "Logged out",
-      description: "You have been successfully logged out"
-    });
   };
 
   return (
