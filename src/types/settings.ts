@@ -1,4 +1,3 @@
-
 export interface OrganizationSettings {
   name: string;
   logo?: string;
@@ -31,6 +30,21 @@ export interface EmailSettings {
   smtpPassword?: string;
   apiKey?: string;
   domain?: string;
+}
+
+export interface DbEmailSettings {
+  id: string;
+  provider: string;
+  from_email: string;
+  from_name: string;
+  smtp_host?: string;
+  smtp_port?: number;
+  smtp_username?: string;
+  smtp_password?: string;
+  api_key?: string;
+  domain?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface SMSSettings {

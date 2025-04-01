@@ -24,7 +24,7 @@ import {
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Mail, Send, Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { EmailSettings as EmailSettingsType } from '@/types/settings';
+import { EmailSettings as EmailSettingsType, DbEmailSettings } from '@/types/settings';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -46,60 +46,79 @@ const EmailSettings = () => {
     },
   });
 
+  // Helper function to map database fields to our app types
+  const mapDbToAppSettings = (dbSettings: DbEmailSettings): EmailSettingsType => {
+    return {
+      provider: dbSettings.provider as 'SMTP' | 'SENDGRID' | 'MAILGUN',
+      fromEmail: dbSettings.from_email,
+      fromName: dbSettings.from_name,
+      smtpHost: dbSettings.smtp_host,
+      smtpPort: dbSettings.smtp_port,
+      smtpUsername: dbSettings.smtp_username,
+      smtpPassword: dbSettings.smtp_password,
+      apiKey: dbSettings.api_key,
+      domain: dbSettings.domain,
+    };
+  };
+
+  // Helper function to map app types to database fields
+  const mapAppToDbSettings = (appSettings: EmailSettingsType, existingId?: string): Partial<DbEmailSettings> => {
+    return {
+      ...(existingId ? { id: existingId } : {}),
+      provider: appSettings.provider,
+      from_email: appSettings.fromEmail,
+      from_name: appSettings.fromName,
+      smtp_host: appSettings.smtpHost,
+      smtp_port: appSettings.smtpPort,
+      smtp_username: appSettings.smtpUsername,
+      smtp_password: appSettings.smtpPassword,
+      api_key: appSettings.apiKey,
+      domain: appSettings.domain,
+    };
+  };
+
   // Fetch email settings
-  const { data: emailSettings, isLoading } = useQuery({
+  const { data: dbEmailSettings, isLoading } = useQuery({
     queryKey: ['emailSettings'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('email_settings')
         .select('*')
-        .single();
+        .maybeSingle();
       
       if (error) {
-        if (error.code === 'PGRST116') {
-          return null; // No settings found
-        }
         console.error('Error fetching email settings:', error);
         throw error;
       }
       
-      return data as EmailSettingsType;
+      return data as DbEmailSettings | null;
     },
   });
 
   // Update form when data is loaded
   useEffect(() => {
-    if (emailSettings) {
-      form.reset({
-        provider: emailSettings.provider,
-        fromEmail: emailSettings.fromEmail,
-        fromName: emailSettings.fromName,
-        smtpHost: emailSettings.smtpHost || '',
-        smtpPort: emailSettings.smtpPort || 587,
-        smtpUsername: emailSettings.smtpUsername || '',
-        smtpPassword: emailSettings.smtpPassword || '',
-        apiKey: emailSettings.apiKey,
-        domain: emailSettings.domain,
-      });
+    if (dbEmailSettings) {
+      const appSettings = mapDbToAppSettings(dbEmailSettings);
+      form.reset(appSettings);
     }
-  }, [emailSettings, form]);
+  }, [dbEmailSettings, form]);
 
   // Save email settings mutation
   const saveSettingsMutation = useMutation({
     mutationFn: async (formData: EmailSettingsType) => {
-      if (emailSettings) {
+      if (dbEmailSettings) {
         // Update existing record
         const { error } = await supabase
           .from('email_settings')
-          .update(formData)
-          .eq('id', emailSettings.id);
+          .update(mapAppToDbSettings(formData, dbEmailSettings.id))
+          .eq('id', dbEmailSettings.id);
           
         if (error) throw error;
       } else {
         // Create new record
         const { error } = await supabase
           .from('email_settings')
-          .insert([formData]);
+          .insert([mapAppToDbSettings(formData)]);
           
         if (error) throw error;
       }
