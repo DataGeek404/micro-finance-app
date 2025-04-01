@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from './AppSidebar';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,15 +12,23 @@ interface AppLayoutProps {
 
 const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
 
-  // Add a timeout for debugging purposes
+  // Add timeouts for better debugging and user experience
   useEffect(() => {
     if (isLoading) {
+      console.log("AppLayout: Loading auth state...");
+      
+      // Set a timeout to detect if loading takes too long
       const timeout = setTimeout(() => {
         console.log("Loading state is taking too long. Current auth state:", { isLoading, isAuthenticated });
+        setLoadingTimeout(true);
       }, 3000);
       
       return () => clearTimeout(timeout);
+    } else {
+      console.log("AppLayout: Auth state loaded, authenticated:", isAuthenticated);
+      setLoadingTimeout(false);
     }
   }, [isLoading, isAuthenticated]);
 
@@ -39,7 +47,9 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             <Skeleton className="h-12 w-3/4 mx-auto" />
           </div>
           <div className="text-center text-sm text-muted-foreground mt-2">
-            Loading your account...
+            {loadingTimeout ? 
+              "Taking longer than expected. Please try refreshing the page..." : 
+              "Loading your account..."}
           </div>
         </div>
       </div>

@@ -21,59 +21,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check for existing session
-    const checkSession = async () => {
-      try {
-        console.log("Checking auth session...");
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          console.error("Session error:", sessionError);
-          setIsLoading(false);
-          return;
-        }
-
-        if (session) {
-          console.log("Session found, fetching profile data...");
-          const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-
-          if (profileError) {
-            console.error("Profile fetch error:", profileError);
-            setIsLoading(false);
-            return;
-          }
-
-          if (profileData) {
-            console.log("Profile data found, setting user...");
-            setUser({
-              id: session.user.id,
-              email: session.user.email || '',
-              name: profileData.name || '',
-              role: profileData.role as UserRole,
-              branch: profileData.branch_id || '',
-              avatar: profileData.avatar || '',
-              createdAt: new Date(session.user.created_at),
-            });
-          }
-        }
-        
-        // Always set loading to false, whether session exists or not
-        setIsLoading(false);
-      } catch (error) {
-        console.error("Session check failed:", error);
-        setIsLoading(false);
-      }
-    };
-
-    checkSession();
-
-    // Set up auth state listener
+    // Set up auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("Auth state changed:", event);
+      
+      if (event === 'SIGNED_OUT') {
+        // Handle sign out by clearing user
+        console.log("User signed out, clearing user state");
+        setUser(null);
+        setIsLoading(false);
+        return;
+      }
       
       if (session) {
         try {
@@ -86,10 +44,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (profileError) {
             console.error("Profile fetch error in state change:", profileError);
             setUser(null);
+            setIsLoading(false);
             return;
           }
 
           if (profileData) {
+            console.log("Setting user from auth state change");
             setUser({
               id: session.user.id,
               email: session.user.email || '',
@@ -103,11 +63,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch (error) {
           console.error("Error in auth state change:", error);
           setUser(null);
+        } finally {
+          setIsLoading(false);
         }
       } else {
         setUser(null);
+        setIsLoading(false);
       }
     });
+
+    // Then check for existing session
+    const checkSession = async () => {
+      try {
+        console.log("Checking auth session...");
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error("Session error:", sessionError);
+          setIsLoading(false);
+          return;
+        }
+
+        if (!session) {
+          console.log("No session found, setting loading to false");
+          setIsLoading(false);
+          return;
+        }
+
+        console.log("Session found, fetching profile data...");
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (profileError) {
+          console.error("Profile fetch error:", profileError);
+          setIsLoading(false);
+          return;
+        }
+
+        if (profileData) {
+          console.log("Profile data found, setting user...");
+          setUser({
+            id: session.user.id,
+            email: session.user.email || '',
+            name: profileData.name || '',
+            role: profileData.role as UserRole,
+            branch: profileData.branch_id || '',
+            avatar: profileData.avatar || '',
+            createdAt: new Date(session.user.created_at),
+          });
+        }
+        
+        // Always set loading to false after checking session
+        setIsLoading(false);
+      } catch (error) {
+        console.error("Session check failed:", error);
+        setIsLoading(false);
+      }
+    };
+
+    checkSession();
 
     return () => {
       subscription.unsubscribe();
