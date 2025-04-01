@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -48,7 +47,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
-import { deleteAllClientsExcept, transformClientData, updateClient } from '@/utils/clientUtils';
+import { deleteAllClients, deleteAllClientsExcept, transformClientData, updateClient } from '@/utils/clientUtils';
 
 const clientSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -80,6 +79,7 @@ const Clients = () => {
   const [currentClient, setCurrentClient] = useState<Client | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeletingAll, setIsDeletingAll] = useState(false);
+  const [isDeleteAllDialogOpen, setIsDeleteAllDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<ClientFormValues>({
@@ -158,7 +158,6 @@ const Clients = () => {
     fetchBranches();
   }, [toast]);
 
-  // Reset form when opening in add mode
   useEffect(() => {
     if (isDialogOpen && !isEditMode) {
       form.reset({
@@ -178,7 +177,6 @@ const Clients = () => {
     }
   }, [isDialogOpen, isEditMode, form]);
 
-  // Set form values when editing
   useEffect(() => {
     if (isEditMode && currentClient) {
       form.reset({
@@ -199,13 +197,44 @@ const Clients = () => {
     }
   }, [isEditMode, currentClient, form]);
 
+  const handleDeleteAllClients = async () => {
+    try {
+      setIsDeletingAll(true);
+      const result = await deleteAllClients();
+      
+      if (result.success) {
+        setClientData([]);
+        
+        toast({
+          title: "All clients deleted",
+          description: result.message,
+        });
+      } else {
+        toast({
+          title: "Error deleting clients",
+          description: result.message,
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error('Error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeletingAll(false);
+      setIsDeleteAllDialogOpen(false);
+    }
+  };
+
   const handleDeleteAllExcept = async () => {
     try {
       setIsDeletingAll(true);
       const result = await deleteAllClientsExcept("james analysis");
       
       if (result.success) {
-        // Refresh client list
         const { data, error } = await supabase
           .from('clients')
           .select('*')
@@ -247,7 +276,6 @@ const Clients = () => {
       setIsSubmitting(true);
       
       if (isEditMode && currentClient) {
-        // Update existing client
         const updatedClient: Client = {
           ...currentClient,
           firstName: data.firstName,
@@ -280,7 +308,6 @@ const Clients = () => {
           throw new Error(result.message);
         }
       } else {
-        // Add new client
         const newClient = {
           first_name: data.firstName,
           last_name: data.lastName,
@@ -399,6 +426,34 @@ const Clients = () => {
         </div>
         
         <div className="flex gap-2">
+          <AlertDialog open={isDeleteAllDialogOpen} onOpenChange={setIsDeleteAllDialogOpen}>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" className="flex items-center gap-1">
+                <Trash className="h-4 w-4" />
+                <span>Delete All Clients</span>
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete All Clients</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action will delete ALL clients from the database.
+                  This cannot be undone. Are you sure you want to continue?
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction 
+                  className="bg-red-600 hover:bg-red-700"
+                  onClick={handleDeleteAllClients}
+                  disabled={isDeletingAll}
+                >
+                  {isDeletingAll ? "Deleting..." : "Delete All Clients"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
           <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
             <AlertDialogTrigger asChild>
               <Button variant="outline" className="flex items-center gap-1">

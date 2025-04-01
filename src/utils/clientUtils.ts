@@ -27,6 +27,34 @@ export const transformClientData = (client: any): Client => ({
 });
 
 /**
+ * Deletes all clients from the database
+ */
+export const deleteAllClients = async (): Promise<{success: boolean, message: string}> => {
+  try {
+    // Delete all clients from the database
+    const { error, count } = await supabase
+      .from('clients')
+      .delete()
+      .select('count');
+    
+    if (error) {
+      throw error;
+    }
+    
+    return {
+      success: true,
+      message: `Successfully deleted ${count || 'all'} clients from the database.`
+    };
+  } catch (error: any) {
+    console.error('Error deleting clients:', error);
+    return {
+      success: false,
+      message: error.message || "There was a problem deleting clients"
+    };
+  }
+};
+
+/**
  * Deletes all clients except the specified one
  */
 export const deleteAllClientsExcept = async (exactName: string): Promise<{success: boolean, message: string}> => {
