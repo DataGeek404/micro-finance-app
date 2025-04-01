@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -37,7 +38,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from '@/components/ui/badge';
 import { Client, ClientStatus } from '@/types/client';
-import { Plus, Search, MoreHorizontal, FileEdit, Trash, Eye, Eraser } from 'lucide-react';
+import { Plus, Search, MoreHorizontal, FileEdit, Trash, Eye } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -47,7 +48,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
-import { deleteAllClients, deleteAllClientsExcept, transformClientData, updateClient } from '@/utils/clientUtils';
+import { transformClientData, updateClient } from '@/utils/clientUtils';
 
 const clientSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -62,7 +63,7 @@ const clientSchema = z.object({
   incomeSource: z.string().min(1, "Income source is required"),
   monthlyIncome: z.coerce.number().min(0, "Monthly income must be positive"),
   branchId: z.string().min(1, "Branch is required"),
-  status: z.enum(["ACTIVE", "INACTIVE", "BLACKLISTED", "PENDING"]),
+  status: z.nativeEnum(ClientStatus),
 });
 
 type ClientFormValues = z.infer<typeof clientSchema>;
@@ -77,9 +78,6 @@ const Clients = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [currentClient, setCurrentClient] = useState<Client | null>(null);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [isDeletingAll, setIsDeletingAll] = useState(false);
-  const [isDeleteAllDialogOpen, setIsDeleteAllDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<ClientFormValues>({
@@ -97,7 +95,7 @@ const Clients = () => {
       incomeSource: "",
       monthlyIncome: 0,
       branchId: "",
-      status: "ACTIVE",
+      status: ClientStatus.ACTIVE,
     }
   });
 
@@ -197,80 +195,6 @@ const Clients = () => {
     }
   }, [isEditMode, currentClient, form]);
 
-  const handleDeleteAllClients = async () => {
-    try {
-      setIsDeletingAll(true);
-      const result = await deleteAllClients();
-      
-      if (result.success) {
-        setClientData([]);
-        
-        toast({
-          title: "All clients deleted",
-          description: result.message,
-        });
-      } else {
-        toast({
-          title: "Error deleting clients",
-          description: result.message,
-          variant: "destructive",
-        });
-      }
-    } catch (error: any) {
-      console.error('Error:', error);
-      toast({
-        title: "Error",
-        description: error.message || "An unexpected error occurred",
-        variant: "destructive",
-      });
-    } finally {
-      setIsDeletingAll(false);
-      setIsDeleteAllDialogOpen(false);
-    }
-  };
-
-  const handleDeleteAllExcept = async () => {
-    try {
-      setIsDeletingAll(true);
-      const result = await deleteAllClientsExcept("james analysis");
-      
-      if (result.success) {
-        const { data, error } = await supabase
-          .from('clients')
-          .select('*')
-          .order('created_at', { ascending: false });
-          
-        if (error) {
-          throw error;
-        }
-        
-        const transformedData = data.map(client => transformClientData(client));
-        setClientData(transformedData);
-        
-        toast({
-          title: "Clients deleted",
-          description: result.message,
-        });
-      } else {
-        toast({
-          title: "Error deleting clients",
-          description: result.message,
-          variant: "destructive",
-        });
-      }
-    } catch (error: any) {
-      console.error('Error:', error);
-      toast({
-        title: "Error",
-        description: error.message || "An unexpected error occurred",
-        variant: "destructive",
-      });
-    } finally {
-      setIsDeletingAll(false);
-      setDeleteDialogOpen(false);
-    }
-  };
-
   const onSubmit = async (data: ClientFormValues) => {
     try {
       setIsSubmitting(true);
@@ -290,7 +214,7 @@ const Clients = () => {
           incomeSource: data.incomeSource,
           monthlyIncome: data.monthlyIncome,
           branchId: data.branchId,
-          status: data.status as ClientStatus,
+          status: data.status,
         };
         
         const result = await updateClient(updatedClient);
@@ -426,62 +350,6 @@ const Clients = () => {
         </div>
         
         <div className="flex gap-2">
-          <AlertDialog open={isDeleteAllDialogOpen} onOpenChange={setIsDeleteAllDialogOpen}>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" className="flex items-center gap-1">
-                <Trash className="h-4 w-4" />
-                <span>Delete All Clients</span>
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete All Clients</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action will delete ALL clients from the database.
-                  This cannot be undone. Are you sure you want to continue?
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction 
-                  className="bg-red-600 hover:bg-red-700"
-                  onClick={handleDeleteAllClients}
-                  disabled={isDeletingAll}
-                >
-                  {isDeletingAll ? "Deleting..." : "Delete All Clients"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-
-          <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-            <AlertDialogTrigger asChild>
-              <Button variant="outline" className="flex items-center gap-1">
-                <Eraser className="h-4 w-4" />
-                <span>Delete All Except James Analysis</span>
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete All Clients Except James Analysis</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action will delete ALL clients except those with name "James Analysis".
-                  This cannot be undone. Are you sure you want to continue?
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction 
-                  className="bg-red-600 hover:bg-red-700"
-                  onClick={handleDeleteAllExcept}
-                  disabled={isDeletingAll}
-                >
-                  {isDeletingAll ? "Deleting..." : "Delete All Except James Analysis"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             setIsDialogOpen(open);
             if (!open) {
@@ -708,10 +576,10 @@ const Clients = () => {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="ACTIVE">Active</SelectItem>
-                                <SelectItem value="INACTIVE">Inactive</SelectItem>
-                                <SelectItem value="BLACKLISTED">Blacklisted</SelectItem>
-                                <SelectItem value="PENDING">Pending</SelectItem>
+                                <SelectItem value={ClientStatus.ACTIVE}>Active</SelectItem>
+                                <SelectItem value={ClientStatus.INACTIVE}>Inactive</SelectItem>
+                                <SelectItem value={ClientStatus.BLACKLISTED}>Blacklisted</SelectItem>
+                                <SelectItem value={ClientStatus.PENDING}>Pending</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
