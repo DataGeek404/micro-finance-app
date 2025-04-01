@@ -13,8 +13,13 @@ interface LoanPortfolioReportProps {
   onDownload?: () => void;
 }
 
+// Create an enhanced Loan interface that includes clientName
+interface EnhancedLoan extends Loan {
+  clientName: string;
+}
+
 const LoanPortfolioReport = ({ onDownload }: LoanPortfolioReportProps) => {
-  const [loans, setLoans] = useState<Loan[]>([]);
+  const [loans, setLoans] = useState<EnhancedLoan[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [summary, setSummary] = useState({
     totalLoans: 0,
@@ -38,8 +43,8 @@ const LoanPortfolioReport = ({ onDownload }: LoanPortfolioReportProps) => {
 
         if (error) throw error;
 
-        // Transform to match Loan type
-        const transformedLoans: Loan[] = data.map(loan => ({
+        // Transform to match EnhancedLoan type
+        const transformedLoans: EnhancedLoan[] = data.map(loan => ({
           id: loan.id,
           clientId: loan.client_id,
           amount: loan.amount,
@@ -67,14 +72,27 @@ const LoanPortfolioReport = ({ onDownload }: LoanPortfolioReportProps) => {
 
         const total = transformedLoans.length;
         const active = transformedLoans.filter(loan => loan.status === LoanStatus.ACTIVE).length;
-        const totalVal = transformedLoans.reduce((sum, loan) => sum + loan.amount, 0);
+        const totalVal = transformedLoans.reduce((sum, loan) => {
+          // Ensure loan.amount is treated as a number
+          const amount = typeof loan.amount === 'string' ? parseFloat(loan.amount) : loan.amount;
+          return sum + amount;
+        }, 0);
+        
         const activeVal = transformedLoans
           .filter(loan => loan.status === LoanStatus.ACTIVE)
-          .reduce((sum, loan) => sum + loan.amount, 0);
+          .reduce((sum, loan) => {
+            // Ensure loan.amount is treated as a number
+            const amount = typeof loan.amount === 'string' ? parseFloat(loan.amount) : loan.amount;
+            return sum + amount;
+          }, 0);
         
         const disbursedThisMonth = transformedLoans
           .filter(loan => loan.disbursedAt && loan.disbursedAt >= firstDayOfMonth)
-          .reduce((sum, loan) => sum + loan.amount, 0);
+          .reduce((sum, loan) => {
+            // Ensure loan.amount is treated as a number
+            const amount = typeof loan.amount === 'string' ? parseFloat(loan.amount) : loan.amount;
+            return sum + amount;
+          }, 0);
         
         setSummary({
           totalLoans: total,

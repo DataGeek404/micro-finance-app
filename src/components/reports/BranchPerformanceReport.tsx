@@ -77,7 +77,12 @@ const BranchPerformanceReport = ({ onDownload }: BranchPerformanceReportProps) =
 
             if (loanAmountError) throw loanAmountError;
 
-            const totalDisbursed = loanData.reduce((sum, loan) => sum + parseInt(loan.amount), 0);
+            // Fix: Convert loan.amount to number before summing
+            const totalDisbursed = loanData.reduce((sum, loan) => {
+              // Ensure loan.amount is treated as a number
+              const amount = typeof loan.amount === 'string' ? parseFloat(loan.amount) : loan.amount;
+              return sum + amount;
+            }, 0);
 
             // In a real app, we would calculate these values from actual data
             // For now, we'll simulate it
