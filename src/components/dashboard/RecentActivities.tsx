@@ -1,14 +1,14 @@
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Check, Clock, DollarSign, FilePlus, UserPlus, Loader2 } from 'lucide-react';
+import { Check, Clock, DollarSign, FilePlus, UserPlus, Loader2, PlayCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 
 interface ActivityItem {
   id: string;
-  type: 'loan_applied' | 'loan_approved' | 'loan_disbursed' | 'client_registered' | 'repayment_received';
+  type: 'loan_applied' | 'loan_approved' | 'loan_disbursed' | 'loan_activated' | 'client_registered' | 'repayment_received';
   description: string;
   timestamp: Date;
   user: string;
@@ -25,6 +25,7 @@ const iconMap = {
   loan_applied: FilePlus,
   loan_approved: Check,
   loan_disbursed: DollarSign,
+  loan_activated: PlayCircle,
   client_registered: UserPlus,
   repayment_received: DollarSign,
 };
@@ -33,6 +34,7 @@ const colorMap = {
   loan_applied: 'bg-blue-100 text-blue-600',
   loan_approved: 'bg-green-100 text-green-600',
   loan_disbursed: 'bg-finance-100 text-finance-600',
+  loan_activated: 'bg-emerald-100 text-emerald-600',
   client_registered: 'bg-purple-100 text-purple-600',
   repayment_received: 'bg-amber-100 text-amber-600',
 };
@@ -60,9 +62,24 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ activities: propAct
             loan_products(name)
           `)
           .order('created_at', { ascending: false })
-          .limit(3);
+          .limit(2);
           
         if (loanAppsError) throw loanAppsError;
+        
+        // Fetch recent loan activations (status changed to ACTIVE)
+        const { data: activatedLoans, error: activationsError } = await supabase
+          .from('loans')
+          .select(`
+            id,
+            amount,
+            disbursed_at,
+            clients(first_name, last_name)
+          `)
+          .eq('status', 'ACTIVE')
+          .order('disbursed_at', { ascending: false })
+          .limit(2);
+          
+        if (activationsError) throw activationsError;
         
         // Fetch recent repayments
         const { data: repayments, error: repaymentsError } = await supabase
@@ -93,10 +110,20 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ activities: propAct
         const formattedLoanApps = loanApps?.map(app => ({
           id: app.id,
           type: 'loan_applied' as const,
-          description: `${app.clients?.first_name} ${app.clients?.last_name} applied for a ${app.loan_products?.name} of KSh ${app.amount}`,
+          description: `${app.clients?.first_name} ${app.clients?.last_name} applied for a ${app.loan_products?.name} of KSh ${app.amount.toLocaleString()}`,
           timestamp: new Date(app.created_at),
           user: `${app.clients?.first_name} ${app.clients?.last_name}`,
           amount: Number(app.amount),
+        })) || [];
+        
+        // Format loan activations
+        const formattedActivations = activatedLoans?.map(loan => ({
+          id: loan.id,
+          type: 'loan_activated' as const,
+          description: `Loan of KSh ${loan.amount.toLocaleString()} activated for ${loan.clients?.first_name} ${loan.clients?.last_name}`,
+          timestamp: new Date(loan.disbursed_at || new Date()),
+          user: 'Loan Officer',
+          amount: Number(loan.amount),
         })) || [];
         
         // Format repayments
@@ -108,8 +135,8 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ activities: propAct
           return {
             id: repayment.id,
             type: 'repayment_received' as const,
-            description: `Repayment received for Loan #${repayment.loan_id.substring(0, 6)}`,
-            timestamp: new Date(repayment.paid_date),
+            description: `Repayment of KSh ${repayment.amount.toLocaleString()} received for Loan #${repayment.loan_id.substring(0, 6)}`,
+            timestamp: new Date(repayment.paid_date || new Date()),
             user: clientName,
             amount: Number(repayment.amount),
           };
@@ -127,6 +154,7 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ activities: propAct
         // Combine and sort by timestamp
         const allActivities = [
           ...formattedLoanApps,
+          ...formattedActivations,
           ...formattedRepayments,
           ...formattedClients
         ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()).slice(0, 5);
