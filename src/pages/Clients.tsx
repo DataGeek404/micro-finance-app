@@ -188,6 +188,7 @@ const Clients = () => {
   const onSubmit = async (data: ClientFormValues) => {
     try {
       setIsSubmitting(true);
+      console.log("Form submitted with data:", data);
       
       if (isEditMode && currentClient) {
         const updatedClient: Client = {
@@ -223,6 +224,7 @@ const Clients = () => {
         }
       } else {
         // New client
+        console.log("Creating new client with form data:", data);
         const newClientData = {
           firstName: data.firstName,
           lastName: data.lastName,
@@ -239,9 +241,11 @@ const Clients = () => {
           status: ClientStatus.ACTIVE,
         };
         
+        console.log("Prepared client data for creation:", newClientData);
         const result = await createClient(newClientData);
         
         if (result.success && result.data) {
+          console.log("Client created successfully:", result.data);
           setClientData(prev => [result.data!, ...prev]);
           
           toast({
@@ -249,6 +253,7 @@ const Clients = () => {
             description: result.message,
           });
         } else {
+          console.error("Error from createClient:", result);
           throw new Error(result.message);
         }
       }

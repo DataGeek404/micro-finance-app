@@ -109,6 +109,16 @@ export const createClient = async (clientData: Omit<Client, 'id' | 'createdAt' |
     // Log the client data being sent
     console.log("Creating client with data:", clientData);
     
+    // Ensure dateOfBirth is properly formatted as ISO string
+    let dateOfBirthIso: string;
+    try {
+      dateOfBirthIso = clientData.dateOfBirth.toISOString();
+    } catch (dateError) {
+      console.error("Date conversion error:", dateError);
+      // If it's a string, try to create a Date object first
+      dateOfBirthIso = new Date(clientData.dateOfBirth).toISOString();
+    }
+    
     const newClient = {
       first_name: clientData.firstName,
       last_name: clientData.lastName,
@@ -116,7 +126,7 @@ export const createClient = async (clientData: Omit<Client, 'id' | 'createdAt' |
       phone: clientData.phone,
       address: clientData.address,
       national_id: clientData.nationalId,
-      date_of_birth: clientData.dateOfBirth.toISOString(),
+      date_of_birth: dateOfBirthIso,
       gender: clientData.gender,
       occupation: clientData.occupation,
       income_source: clientData.incomeSource,
