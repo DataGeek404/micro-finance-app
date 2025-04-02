@@ -29,7 +29,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Loan, LoanStatus } from '@/types/loan';
-import { Plus, Search, FileText, ArrowUpRight, Loader2 } from 'lucide-react';
+import { Plus, Search, FileText, ArrowUpRight, Loader2, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -77,6 +77,8 @@ const Loans = () => {
     approval: false
   });
   const [error, setError] = useState<string | null>(null);
+  const [selectedLoan, setSelectedLoan] = useState<DbLoan & { clientName: string } | null>(null);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -176,6 +178,11 @@ const Loans = () => {
     }
   };
 
+  const handleViewLoan = (loan: DbLoan & { clientName: string }) => {
+    setSelectedLoan(loan);
+    setIsViewDialogOpen(true);
+  };
+
   const filteredLoans = loans.filter(loan => {
     const matchesSearch = 
       loan.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -209,9 +216,9 @@ const Loans = () => {
   };
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-KE', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'KES',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(value);
@@ -219,6 +226,12 @@ const Loans = () => {
 
   const handleNewLoan = () => {
     navigate('/loans/create');
+  };
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString();
   };
 
   return (
@@ -327,8 +340,8 @@ const Loans = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="icon">
-                            <FileText className="h-4 w-4" />
+                          <Button variant="ghost" size="icon" onClick={() => handleViewLoan(loan)}>
+                            <Eye className="h-4 w-4" />
                           </Button>
                           
                           {loan.status === LoanStatus.PENDING && (
@@ -355,6 +368,76 @@ const Loans = () => {
           )}
         </div>
       </div>
+
+      {/* View Loan Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Loan Details</DialogTitle>
+          </DialogHeader>
+          
+          {selectedLoan && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Loan ID</Label>
+                  <p className="font-mono text-sm">#{selectedLoan.id}</p>
+                </div>
+                <div>
+                  <Label>Status</Label>
+                  <p>
+                    <Badge className={getStatusColor(selectedLoan.status as LoanStatus)} variant="outline">
+                      {selectedLoan.status}
+                    </Badge>
+                  </p>
+                </div>
+                <div>
+                  <Label>Client</Label>
+                  <p className="font-medium">{selectedLoan.clientName}</p>
+                </div>
+                <div>
+                  <Label>Amount</Label>
+                  <p className="font-medium">{formatCurrency(selectedLoan.amount)}</p>
+                </div>
+                <div>
+                  <Label>Interest Rate</Label>
+                  <p>{selectedLoan.interest_rate}%</p>
+                </div>
+                <div>
+                  <Label>Term</Label>
+                  <p>{selectedLoan.term} months</p>
+                </div>
+                <div>
+                  <Label>Created Date</Label>
+                  <p>{formatDate(selectedLoan.created_at)}</p>
+                </div>
+                <div>
+                  <Label>Start Date</Label>
+                  <p>{formatDate(selectedLoan.start_date)}</p>
+                </div>
+                <div>
+                  <Label>End Date</Label>
+                  <p>{formatDate(selectedLoan.end_date)}</p>
+                </div>
+                <div>
+                  <Label>Approved Date</Label>
+                  <p>{formatDate(selectedLoan.approved_at)}</p>
+                </div>
+                <div className="col-span-2">
+                  <Label>Purpose</Label>
+                  <p className="text-sm mt-1">{selectedLoan.purpose}</p>
+                </div>
+              </div>
+              
+              <DialogFooter>
+                <Button onClick={() => setIsViewDialogOpen(false)}>
+                  Close
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 };

@@ -93,7 +93,7 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ activities: propAct
         const formattedLoanApps = loanApps?.map(app => ({
           id: app.id,
           type: 'loan_applied' as const,
-          description: `${app.clients?.first_name} ${app.clients?.last_name} applied for a ${app.loan_products?.name} of $${app.amount}`,
+          description: `${app.clients?.first_name} ${app.clients?.last_name} applied for a ${app.loan_products?.name} of KSh ${app.amount}`,
           timestamp: new Date(app.created_at),
           user: `${app.clients?.first_name} ${app.clients?.last_name}`,
           amount: Number(app.amount),
@@ -187,7 +187,7 @@ const RecentActivities: React.FC<RecentActivitiesProps> = ({ activities: propAct
                     </div>
                     {activity.amount && (
                       <p className="text-sm font-medium mt-1 text-finance-600">
-                        ${activity.amount.toLocaleString()}
+                        KSh {activity.amount.toLocaleString()}
                       </p>
                     )}
                   </div>

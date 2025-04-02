@@ -5,7 +5,7 @@ import AppLayout from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Receipt, FilePlus2, Loader2 } from 'lucide-react';
+import { Receipt, FilePlus2, Loader2, Eye } from 'lucide-react';
 import { 
   Dialog, 
   DialogContent, 
@@ -49,6 +49,7 @@ const LoanApplications = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState<LoanApplication | null>(null);
   const [reviewNote, setReviewNote] = useState('');
+  const [isViewMode, setIsViewMode] = useState(false);
   const queryClient = useQueryClient();
 
   // Fetch loan applications from Supabase
@@ -92,6 +93,7 @@ const LoanApplications = () => {
         description: `Application has been approved successfully.`,
       });
       setIsDialogOpen(false);
+      setIsViewMode(false);
     },
     onError: (error) => {
       toast({
@@ -122,6 +124,7 @@ const LoanApplications = () => {
         variant: "destructive"
       });
       setIsDialogOpen(false);
+      setIsViewMode(false);
     },
     onError: (error) => {
       toast({
@@ -139,6 +142,13 @@ const LoanApplications = () => {
   const handleReviewApplication = (application: LoanApplication) => {
     setSelectedApplication(application);
     setReviewNote('');
+    setIsViewMode(false);
+    setIsDialogOpen(true);
+  };
+
+  const handleViewApplication = (application: LoanApplication) => {
+    setSelectedApplication(application);
+    setIsViewMode(true);
     setIsDialogOpen(true);
   };
 
@@ -218,7 +228,7 @@ const LoanApplications = () => {
                       <TableRow key={app.id}>
                         <TableCell className="font-mono text-xs">#{app.id.substring(0, 8)}</TableCell>
                         <TableCell className="font-medium">{app.clients?.first_name} {app.clients?.last_name}</TableCell>
-                        <TableCell>${app.amount.toLocaleString()}</TableCell>
+                        <TableCell>KSh {app.amount.toLocaleString()}</TableCell>
                         <TableCell>{app.loan_products?.name}</TableCell>
                         <TableCell>{formatDate(app.created_at)}</TableCell>
                         <TableCell>
@@ -227,13 +237,25 @@ const LoanApplications = () => {
                           </span>
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => handleReviewApplication(app)}
-                          >
-                            Review
-                          </Button>
+                          <div className="flex justify-end gap-2">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleViewApplication(app)}
+                            >
+                              <Eye className="h-4 w-4 mr-1" />
+                              View
+                            </Button>
+                            {app.status === 'PENDING' && (
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleReviewApplication(app)}
+                              >
+                                Review
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
@@ -255,7 +277,9 @@ const LoanApplications = () => {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Review Loan Application</DialogTitle>
+            <DialogTitle>
+              {isViewMode ? "Loan Application Details" : "Review Loan Application"}
+            </DialogTitle>
           </DialogHeader>
           
           {selectedApplication && (
@@ -267,7 +291,7 @@ const LoanApplications = () => {
                 </div>
                 <div>
                   <Label>Amount</Label>
-                  <p className="font-medium">${selectedApplication.amount.toLocaleString()}</p>
+                  <p className="font-medium">KSh {selectedApplication.amount.toLocaleString()}</p>
                 </div>
                 <div>
                   <Label>Product</Label>
@@ -277,13 +301,25 @@ const LoanApplications = () => {
                   <Label>Date</Label>
                   <p className="font-medium">{formatDate(selectedApplication.created_at)}</p>
                 </div>
+                <div>
+                  <Label>Status</Label>
+                  <p className="font-medium">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedApplication.status)}`}>
+                      {selectedApplication.status}
+                    </span>
+                  </p>
+                </div>
+                <div>
+                  <Label>Application ID</Label>
+                  <p className="font-medium font-mono text-xs">#{selectedApplication.id}</p>
+                </div>
                 <div className="col-span-2">
                   <Label>Purpose</Label>
                   <p className="font-medium">{selectedApplication.purpose}</p>
                 </div>
               </div>
               
-              {selectedApplication.status === 'PENDING' && (
+              {selectedApplication.status === 'PENDING' && !isViewMode && (
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="notes">Notes</Label>
@@ -329,7 +365,7 @@ const LoanApplications = () => {
                 </div>
               )}
               
-              {selectedApplication.status !== 'PENDING' && (
+              {(selectedApplication.status !== 'PENDING' || isViewMode) && (
                 <DialogFooter>
                   <Button onClick={() => setIsDialogOpen(false)}>
                     Close

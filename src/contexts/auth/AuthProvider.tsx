@@ -20,6 +20,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [authError, setAuthError] = useState<string | null>(null);
   const { toast } = useToast();
   
+  const SESSION_TIMEOUT = 60000;
   const userActivityTimeout = useRef<number | null>(null);
   const lastActivityTime = useRef<number>(Date.now());
 
@@ -38,11 +39,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const currentTime = Date.now();
       const inactiveTime = currentTime - lastActivityTime.current;
       
-      if (inactiveTime >= 60000) {
-        console.log("User inactive for 60 seconds, showing session timeout warning");
+      if (inactiveTime >= SESSION_TIMEOUT) {
+        console.log(`User inactive for ${SESSION_TIMEOUT / 1000} seconds, showing session timeout warning`);
         setAuthError("Session timed out due to inactivity. Please refresh your session.");
       }
-    }, 60000);
+    }, SESSION_TIMEOUT);
   }, []);
 
   useEffect(() => {
