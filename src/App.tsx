@@ -23,7 +23,6 @@ import CreateLoan from "./pages/loans/CreateLoan";
 import LoanProducts from "./pages/loans/LoanProducts";
 import LoanCharges from "./pages/loans/LoanCharges";
 import LoanCalculator from "./pages/loans/LoanCalculator";
-import LoanRepayments from "./pages/loans/LoanRepayments";
 
 // Payroll pages
 import Payroll from "./pages/Payroll";
@@ -74,7 +73,6 @@ const App = () => (
             <Route path="/loans/products" element={<LoanProducts />} />
             <Route path="/loans/charges" element={<LoanCharges />} />
             <Route path="/loans/calculator" element={<LoanCalculator />} />
-            <Route path="/loans/repayments/:id" element={<LoanRepayments />} />
             
             {/* Payroll routes */}
             <Route path="/payroll" element={<Payroll />} />

@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+
+import React, { useState, useEffect, useCallback } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { AuthContext } from './AuthContext';
 import { User } from './types';
@@ -19,58 +20,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const { toast } = useToast();
-  
-  const SESSION_TIMEOUT = 60000;
-  const userActivityTimeout = useRef<number | null>(null);
-  const lastActivityTime = useRef<number>(Date.now());
 
   const clearAuthError = useCallback(() => {
     setAuthError(null);
   }, []);
-
-  const resetUserActivityTimer = useCallback(() => {
-    lastActivityTime.current = Date.now();
-    
-    if (userActivityTimeout.current) {
-      window.clearTimeout(userActivityTimeout.current);
-    }
-    
-    userActivityTimeout.current = window.setTimeout(() => {
-      const currentTime = Date.now();
-      const inactiveTime = currentTime - lastActivityTime.current;
-      
-      if (inactiveTime >= SESSION_TIMEOUT) {
-        console.log(`User inactive for ${SESSION_TIMEOUT / 1000} seconds, showing session timeout warning`);
-        setAuthError("Session timed out due to inactivity. Please refresh your session.");
-      }
-    }, SESSION_TIMEOUT);
-  }, []);
-
-  useEffect(() => {
-    if (user) {
-      const activityEvents = ['mousedown', 'keypress', 'scroll', 'touchstart'];
-      
-      const handleUserActivity = () => {
-        resetUserActivityTimer();
-      };
-      
-      activityEvents.forEach(event => {
-        window.addEventListener(event, handleUserActivity);
-      });
-      
-      resetUserActivityTimer();
-      
-      return () => {
-        activityEvents.forEach(event => {
-          window.removeEventListener(event, handleUserActivity);
-        });
-        
-        if (userActivityTimeout.current) {
-          window.clearTimeout(userActivityTimeout.current);
-        }
-      };
-    }
-  }, [user, resetUserActivityTimer]);
 
   const handleSessionRefresh = useCallback(async () => {
     try {
@@ -88,8 +41,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           title: "Session refreshed",
           description: "Your authentication has been restored."
         });
-        
-        resetUserActivityTimer();
       } else {
         setUser(null);
         setSession(null);
@@ -112,20 +63,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [toast, clearAuthError, resetUserActivityTimer]);
+  }, [toast]);
 
   useEffect(() => {
     console.log("Initializing auth context...");
     let mounted = true;
     
+    // Initial timeout to ensure loading state doesn't hang forever
     const loadingTimeout = setTimeout(() => {
       if (mounted && isLoading) {
         console.error("Auth initialization timed out, forcing loading state to false");
         setIsLoading(false);
         setAuthError("Authentication timed out. Please try refreshing the page.");
       }
-    }, 30000);
+    }, 6000); // Reduced from 10000ms to 6000ms for more responsiveness
 
+    // Set up auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       console.log("Auth state changed:", event);
       
@@ -144,6 +97,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setSession(newSession);
         clearAuthError();
         
+        // Use setTimeout to prevent potential deadlocks
         setTimeout(async () => {
           try {
             console.log("Session found in auth state change, fetching profile...");
@@ -154,8 +108,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 console.log("Setting user from auth state change");
                 setUser(profileData);
                 clearAuthError();
-                
-                resetUserActivityTimer();
               } else {
                 setUser(null);
                 setAuthError("User profile not found. Please contact support.");
@@ -177,6 +129,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     });
 
+    // Then check for existing session
     const checkSession = async () => {
       try {
         console.log("Checking auth session...");
@@ -210,8 +163,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             console.log("Profile data found, setting user...");
             setUser(profileData);
             clearAuthError();
-            
-            resetUserActivityTimer();
           } else {
             setAuthError("User profile not found. Please try logging in again.");
           }
@@ -236,12 +187,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       mounted = false;
       clearTimeout(loadingTimeout);
       subscription.unsubscribe();
-      
-      if (userActivityTimeout.current) {
-        window.clearTimeout(userActivityTimeout.current);
-      }
     };
-  }, [clearAuthError, resetUserActivityTimer]);
+  }, []);
 
   const handleLogin = async (email: string, password: string) => {
     try {
@@ -354,6 +301,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  // Display error message with retry option if there's an authentication error
   if (authError && !isLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4">

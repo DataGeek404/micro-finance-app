@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -28,7 +29,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Loan, LoanStatus } from '@/types/loan';
-import { Plus, Search, FileText, ArrowUpRight, Loader2, Eye, PlayCircle, CreditCard } from 'lucide-react';
+import { Plus, Search, FileText, ArrowUpRight, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -63,7 +64,6 @@ interface LoadingState {
   loans: boolean;
   clients: boolean;
   approval: boolean;
-  activation: boolean;
 }
 
 const Loans = () => {
@@ -74,14 +74,9 @@ const Loans = () => {
   const [loading, setLoading] = useState<LoadingState>({
     loans: true,
     clients: false,
-    approval: false,
-    activation: false
+    approval: false
   });
   const [error, setError] = useState<string | null>(null);
-  const [selectedLoan, setSelectedLoan] = useState<DbLoan & { clientName: string } | null>(null);
-  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [isRepayDialogOpen, setIsRepayDialogOpen] = useState(false);
-  const [repaymentAmount, setRepaymentAmount] = useState<string>('');
   
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -181,221 +176,6 @@ const Loans = () => {
     }
   };
 
-  const activateLoan = async (loanId: string) => {
-    try {
-      setLoading(prev => ({ ...prev, activation: true }));
-      
-      // Get current date for start date
-      const startDate = new Date().toISOString();
-      
-      // Get the loan to calculate end date
-      const { data: loanData, error: loanError } = await supabase
-        .from('loans')
-        .select('term')
-        .eq('id', loanId)
-        .single();
-        
-      if (loanError) throw loanError;
-      
-      // Calculate end date based on term (months)
-      const endDate = new Date();
-      endDate.setMonth(endDate.getMonth() + loanData.term);
-      
-      // Update loan status to ACTIVE
-      const { error: updateError } = await supabase
-        .from('loans')
-        .update({ 
-          status: LoanStatus.ACTIVE,
-          start_date: startDate,
-          end_date: endDate.toISOString(),
-          disbursed_at: startDate,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', loanId);
-      
-      if (updateError) throw updateError;
-      
-      // Create repayment schedule
-      await createRepaymentSchedule(loanId, loanData.term, startDate);
-      
-      // Refresh loans data
-      await fetchLoans();
-      
-      toast({
-        title: "Loan Activated",
-        description: `Loan #${loanId.substring(0, 8)} has been activated and repayment schedule created.`
-      });
-    } catch (err) {
-      console.error('Error activating loan:', err);
-      toast({
-        title: "Error",
-        description: "Failed to activate loan. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(prev => ({ ...prev, activation: false }));
-    }
-  };
-
-  const createRepaymentSchedule = async (loanId: string, term: number, startDate: string) => {
-    try {
-      // Get the loan details
-      const { data: loanData, error: loanError } = await supabase
-        .from('loans')
-        .select('amount, interest_rate')
-        .eq('id', loanId)
-        .single();
-        
-      if (loanError) throw loanError;
-      
-      const principal = loanData.amount;
-      const interestRate = loanData.interest_rate / 100; // Convert to decimal
-      
-      // Calculate simple monthly payment (principal + interest / term)
-      // This is a simplified calculation - in a real system you'd use more complex amortization
-      const totalInterest = principal * interestRate * term / 12; // Annual interest rate for term months
-      const totalAmount = principal + totalInterest;
-      const monthlyPayment = totalAmount / term;
-      
-      // Create a repayment for each month
-      const repayments = [];
-      const startDateObj = new Date(startDate);
-      
-      for (let i = 0; i < term; i++) {
-        const dueDate = new Date(startDateObj);
-        dueDate.setMonth(dueDate.getMonth() + i + 1);
-        
-        repayments.push({
-          loan_id: loanId,
-          amount: monthlyPayment,
-          due_date: dueDate.toISOString(),
-          is_paid: false
-        });
-      }
-      
-      // Insert all repayments
-      const { error: insertError } = await supabase
-        .from('loan_repayments')
-        .insert(repayments);
-      
-      if (insertError) throw insertError;
-      
-    } catch (err) {
-      console.error('Error creating repayment schedule:', err);
-      throw new Error('Failed to create repayment schedule');
-    }
-  };
-
-  const handleRepayment = async () => {
-    if (!selectedLoan || !repaymentAmount || parseFloat(repaymentAmount) <= 0) {
-      toast({
-        title: "Invalid Input",
-        description: "Please enter a valid repayment amount.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      // Get the next unpaid repayment
-      const { data: repaymentData, error: repaymentError } = await supabase
-        .from('loan_repayments')
-        .select('id, amount, due_date')
-        .eq('loan_id', selectedLoan.id)
-        .eq('is_paid', false)
-        .order('due_date', { ascending: true })
-        .limit(1)
-        .single();
-        
-      if (repaymentError) {
-        if (repaymentError.code === 'PGRST116') {
-          toast({
-            title: "No Pending Repayments",
-            description: "This loan has no pending repayments.",
-            variant: "destructive"
-          });
-        } else {
-          throw repaymentError;
-        }
-        return;
-      }
-      
-      // Check if repayment amount is sufficient
-      if (parseFloat(repaymentAmount) < repaymentData.amount) {
-        toast({
-          title: "Insufficient Amount",
-          description: `The minimum repayment amount is KSh ${repaymentData.amount.toLocaleString()}`,
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      // Update repayment as paid
-      const { error: updateError } = await supabase
-        .from('loan_repayments')
-        .update({ 
-          is_paid: true,
-          paid_date: new Date().toISOString(),
-          payment_method: 'Cash', // This could be a form input
-          transaction_id: `TRANS-${Date.now()}` // This should be from payment processor in real app
-        })
-        .eq('id', repaymentData.id);
-        
-      if (updateError) throw updateError;
-      
-      // Close dialog and reset form
-      setIsRepayDialogOpen(false);
-      setRepaymentAmount('');
-      
-      // Check if this was the last repayment
-      const { count, error: countError } = await supabase
-        .from('loan_repayments')
-        .select('id', { count: 'exact', head: true })
-        .eq('loan_id', selectedLoan.id)
-        .eq('is_paid', false);
-        
-      if (countError) throw countError;
-      
-      // If no more repayments, mark loan as completed
-      if (count === 0) {
-        const { error: loanUpdateError } = await supabase
-          .from('loans')
-          .update({ 
-            status: LoanStatus.COMPLETED,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', selectedLoan.id);
-          
-        if (loanUpdateError) throw loanUpdateError;
-      }
-      
-      // Refresh loans data
-      await fetchLoans();
-      
-      toast({
-        title: "Repayment Successful",
-        description: `Payment of KSh ${parseFloat(repaymentAmount).toLocaleString()} has been recorded.`
-      });
-    } catch (err) {
-      console.error('Error making repayment:', err);
-      toast({
-        title: "Error",
-        description: "Failed to process repayment. Please try again.",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleViewLoan = (loan: DbLoan & { clientName: string }) => {
-    setSelectedLoan(loan);
-    setIsViewDialogOpen(true);
-  };
-  
-  const handleOpenRepayDialog = (loan: DbLoan & { clientName: string }) => {
-    setSelectedLoan(loan);
-    setIsRepayDialogOpen(true);
-  };
-
   const filteredLoans = loans.filter(loan => {
     const matchesSearch = 
       loan.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -429,9 +209,9 @@ const Loans = () => {
   };
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-KE', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'KES',
+      currency: 'USD',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(value);
@@ -439,12 +219,6 @@ const Loans = () => {
 
   const handleNewLoan = () => {
     navigate('/loans/create');
-  };
-
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleDateString();
   };
 
   return (
@@ -553,8 +327,8 @@ const Loans = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="icon" onClick={() => handleViewLoan(loan)}>
-                            <Eye className="h-4 w-4" />
+                          <Button variant="ghost" size="icon">
+                            <FileText className="h-4 w-4" />
                           </Button>
                           
                           {loan.status === LoanStatus.PENDING && (
@@ -571,33 +345,6 @@ const Loans = () => {
                               Approve
                             </Button>
                           )}
-                          
-                          {loan.status === LoanStatus.APPROVED && (
-                            <Button 
-                              size="sm"
-                              variant="outline"
-                              onClick={() => activateLoan(loan.id)}
-                              disabled={loading.activation}
-                            >
-                              {loading.activation ? (
-                                <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                              ) : (
-                                <PlayCircle className="h-3 w-3 mr-1" />
-                              )}
-                              Activate
-                            </Button>
-                          )}
-                          
-                          {loan.status === LoanStatus.ACTIVE && (
-                            <Button 
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleOpenRepayDialog(loan)}
-                            >
-                              <CreditCard className="h-3 w-3 mr-1" />
-                              Repay
-                            </Button>
-                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -608,135 +355,6 @@ const Loans = () => {
           )}
         </div>
       </div>
-
-      {/* View Loan Dialog */}
-      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>Loan Details</DialogTitle>
-          </DialogHeader>
-          
-          {selectedLoan && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Loan ID</Label>
-                  <p className="font-mono text-sm">#{selectedLoan.id}</p>
-                </div>
-                <div>
-                  <Label>Status</Label>
-                  <p>
-                    <Badge className={getStatusColor(selectedLoan.status as LoanStatus)} variant="outline">
-                      {selectedLoan.status}
-                    </Badge>
-                  </p>
-                </div>
-                <div>
-                  <Label>Client</Label>
-                  <p className="font-medium">{selectedLoan.clientName}</p>
-                </div>
-                <div>
-                  <Label>Amount</Label>
-                  <p className="font-medium">{formatCurrency(selectedLoan.amount)}</p>
-                </div>
-                <div>
-                  <Label>Interest Rate</Label>
-                  <p>{selectedLoan.interest_rate}%</p>
-                </div>
-                <div>
-                  <Label>Term</Label>
-                  <p>{selectedLoan.term} months</p>
-                </div>
-                <div>
-                  <Label>Created Date</Label>
-                  <p>{formatDate(selectedLoan.created_at)}</p>
-                </div>
-                <div>
-                  <Label>Start Date</Label>
-                  <p>{formatDate(selectedLoan.start_date)}</p>
-                </div>
-                <div>
-                  <Label>End Date</Label>
-                  <p>{formatDate(selectedLoan.end_date)}</p>
-                </div>
-                <div>
-                  <Label>Approved Date</Label>
-                  <p>{formatDate(selectedLoan.approved_at)}</p>
-                </div>
-                <div className="col-span-2">
-                  <Label>Purpose</Label>
-                  <p className="text-sm mt-1">{selectedLoan.purpose}</p>
-                </div>
-              </div>
-              
-              <DialogFooter>
-                {selectedLoan.status === LoanStatus.ACTIVE && (
-                  <Button 
-                    variant="outline" 
-                    onClick={() => {
-                      setIsViewDialogOpen(false);
-                      setIsRepayDialogOpen(true);
-                    }}
-                  >
-                    <CreditCard className="h-4 w-4 mr-2" />
-                    Make Repayment
-                  </Button>
-                )}
-                <Button onClick={() => setIsViewDialogOpen(false)}>
-                  Close
-                </Button>
-              </DialogFooter>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-      
-      {/* Repayment Dialog */}
-      <Dialog open={isRepayDialogOpen} onOpenChange={setIsRepayDialogOpen}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle>Make Loan Repayment</DialogTitle>
-          </DialogHeader>
-          
-          {selectedLoan && (
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="clientName">Client</Label>
-                <p className="font-medium">{selectedLoan.clientName}</p>
-              </div>
-              
-              <div>
-                <Label htmlFor="loanId">Loan ID</Label>
-                <p className="font-mono text-sm">#{selectedLoan.id.substring(0, 8)}</p>
-              </div>
-              
-              <div>
-                <Label htmlFor="amount" className="text-sm">Amount</Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  placeholder="Enter repayment amount"
-                  value={repaymentAmount}
-                  onChange={(e) => setRepaymentAmount(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Total loan amount: {formatCurrency(selectedLoan.amount)}
-                </p>
-              </div>
-              
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsRepayDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleRepayment}>
-                  <CreditCard className="h-4 w-4 mr-2" />
-                  Make Payment
-                </Button>
-              </DialogFooter>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </AppLayout>
   );
 };
