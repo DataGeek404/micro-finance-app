@@ -106,6 +106,9 @@ export const createClient = async (clientData: Omit<Client, 'id' | 'createdAt' |
   data?: Client;
 }> => {
   try {
+    // Log the client data being sent
+    console.log("Creating client with data:", clientData);
+    
     const newClient = {
       first_name: clientData.firstName,
       last_name: clientData.lastName,
@@ -123,6 +126,9 @@ export const createClient = async (clientData: Omit<Client, 'id' | 'createdAt' |
       photo: clientData.photo || null
     };
     
+    // Log the formatted data being sent to Supabase
+    console.log("Formatted client data for Supabase:", newClient);
+    
     const { data, error } = await supabase
       .from('clients')
       .insert([newClient])
@@ -130,8 +136,11 @@ export const createClient = async (clientData: Omit<Client, 'id' | 'createdAt' |
       .single();
       
     if (error) {
+      console.error("Supabase error:", error);
       throw error;
     }
+    
+    console.log("Client created successfully:", data);
     
     return {
       success: true,
@@ -196,5 +205,20 @@ export const prepareClientsForExport = (clients: Client[]): Record<string, strin
     'Monthly Income': client.monthlyIncome.toString(),
     'Status': client.status,
     'Created At': client.createdAt.toISOString().split('T')[0],
+  }));
+};
+
+/**
+ * Converts client data to PDF-ready format
+ */
+export const prepareClientsForPDF = (clients: Client[]): any[] => {
+  return clients.map(client => ({
+    id: client.id,
+    name: `${client.firstName} ${client.lastName}`,
+    contact: client.email || client.phone,
+    nationalId: client.nationalId,
+    income: `$${client.monthlyIncome.toLocaleString()}`,
+    status: client.status,
+    createdAt: client.createdAt.toISOString().split('T')[0]
   }));
 };
