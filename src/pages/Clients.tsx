@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -308,6 +309,8 @@ const Clients = () => {
           throw new Error(result.message);
         }
       } else {
+        // Remove the reference to checkNationalIdExists that doesn't exist
+        // We'll just proceed with saving the client directly
         const newClient = {
           first_name: data.firstName,
           last_name: data.lastName,
