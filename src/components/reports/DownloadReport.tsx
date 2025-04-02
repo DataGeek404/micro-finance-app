@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Download, Loader2, FilePdf, FileText } from 'lucide-react';
+import { Download, Loader2, FileText, FileIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface DownloadReportProps {
@@ -170,7 +170,7 @@ const DownloadReport: React.FC<DownloadReportProps> = ({
           </>
         ) : (
           <>
-            <FilePdf className="h-4 w-4" />
+            <FileIcon className="h-4 w-4" />
             <span>PDF</span>
           </>
         )}
