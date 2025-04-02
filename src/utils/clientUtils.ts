@@ -110,14 +110,31 @@ export const createClient = async (clientData: Omit<Client, 'id' | 'createdAt' |
     console.log("Creating client with data:", clientData);
     
     // Ensure dateOfBirth is properly formatted as ISO string
+    if (!clientData.dateOfBirth) {
+      throw new Error("Date of birth is required");
+    }
+    
     let dateOfBirthIso: string;
     try {
-      dateOfBirthIso = clientData.dateOfBirth.toISOString();
+      // If it's already a Date object
+      if (clientData.dateOfBirth instanceof Date) {
+        dateOfBirthIso = clientData.dateOfBirth.toISOString();
+      } else {
+        // If it's a string, create a Date object
+        dateOfBirthIso = new Date(clientData.dateOfBirth).toISOString();
+      }
+      console.log("Formatted date of birth:", dateOfBirthIso);
     } catch (dateError) {
       console.error("Date conversion error:", dateError);
-      // If it's a string, try to create a Date object first
-      dateOfBirthIso = new Date(clientData.dateOfBirth).toISOString();
+      throw new Error("Invalid date format for date of birth");
     }
+    
+    // Validate required fields
+    if (!clientData.firstName) throw new Error("First name is required");
+    if (!clientData.lastName) throw new Error("Last name is required");
+    if (!clientData.phone) throw new Error("Phone is required");
+    if (!clientData.nationalId) throw new Error("National ID is required");
+    if (!clientData.branchId) throw new Error("Branch selection is required");
     
     const newClient = {
       first_name: clientData.firstName,

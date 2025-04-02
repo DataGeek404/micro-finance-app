@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -223,6 +224,18 @@ const Clients = () => {
         }
       } else {
         console.log("Creating new client with form data:", data);
+        
+        // Validate branch selection early
+        if (!data.branchId) {
+          toast({
+            title: "Error validating form",
+            description: "Branch selection is required",
+            variant: "destructive",
+          });
+          setIsSubmitting(false);
+          return;
+        }
+
         const newClientData = {
           firstName: data.firstName,
           lastName: data.lastName,
@@ -241,16 +254,6 @@ const Clients = () => {
         
         console.log("Prepared client data for creation:", newClientData);
         
-        if (!data.branchId) {
-          toast({
-            title: "Error validating form",
-            description: "Branch selection is required",
-            variant: "destructive",
-          });
-          setIsSubmitting(false);
-          return;
-        }
-
         const result = await createClient(newClientData);
         
         if (result.success && result.data) {
@@ -265,7 +268,7 @@ const Clients = () => {
           setIsDialogOpen(false);
         } else {
           console.error("Error from createClient:", result);
-          throw new Error(result.message);
+          throw new Error(result.message || "Failed to create client");
         }
       }
       
