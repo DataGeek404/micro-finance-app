@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -61,16 +60,16 @@ import {
 import DownloadReport from '@/components/reports/DownloadReport';
 
 const clientSchema = z.object({
-  firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().min(1, "Last name is required"),
-  email: z.string().email("Invalid email").optional().or(z.literal('')),
-  phone: z.string().min(1, "Phone number is required"),
-  address: z.string().min(1, "Address is required"),
-  nationalId: z.string().min(1, "National ID is required"),
+  firstName: z.string().min(1, "First name is required").trim(),
+  lastName: z.string().min(1, "Last name is required").trim(),
+  email: z.string().email("Invalid email").optional().or(z.literal('')).transform(val => val === '' ? undefined : val?.trim()),
+  phone: z.string().min(1, "Phone number is required").trim(),
+  address: z.string().min(1, "Address is required").trim(),
+  nationalId: z.string().min(1, "National ID is required").trim(),
   dateOfBirth: z.string().min(1, "Date of birth is required"),
   gender: z.enum(["male", "female", "other"]),
-  occupation: z.string().min(1, "Occupation is required"),
-  incomeSource: z.string().min(1, "Income source is required"),
+  occupation: z.string().min(1, "Occupation is required").trim(),
+  incomeSource: z.string().min(1, "Income source is required").trim(),
   monthlyIncome: z.coerce.number().min(0, "Monthly income must be positive"),
   branchId: z.string().min(1, "Branch is required"),
   status: z.nativeEnum(ClientStatus),
@@ -190,6 +189,21 @@ const Clients = () => {
       setIsSubmitting(true);
       console.log("Form submitted with data:", data);
       
+      const nationalIdExists = await checkNationalIdExists(
+        data.nationalId, 
+        isEditMode ? currentClient?.id : undefined
+      );
+      
+      if (nationalIdExists) {
+        toast({
+          title: "National ID already exists",
+          description: `A client with National ID ${data.nationalId} already exists`,
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+      
       if (isEditMode && currentClient) {
         const updatedClient: Client = {
           ...currentClient,
@@ -219,6 +233,8 @@ const Clients = () => {
             title: "Client updated successfully",
             description: `${data.firstName} ${data.lastName}'s information has been updated`,
           });
+          
+          setIsDialogOpen(false);
         } else {
           throw new Error(result.message);
         }

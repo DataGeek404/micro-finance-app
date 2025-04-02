@@ -29,3 +29,53 @@ export const fetchAllClients = async (): Promise<Client[]> => {
     return [];
   }
 };
+
+/**
+ * Fetches a single client by id
+ */
+export const fetchClientById = async (clientId: string): Promise<Client | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('id', clientId)
+      .single();
+      
+    if (error) {
+      console.error('Error fetching client:', error);
+      return null;
+    }
+    
+    return transformClientData(data);
+  } catch (error) {
+    console.error('Error fetching client by id:', error);
+    return null;
+  }
+};
+
+/**
+ * Checks if a national ID is already in use
+ */
+export const checkNationalIdExists = async (nationalId: string, excludeClientId?: string): Promise<boolean> => {
+  try {
+    let query = supabase
+      .from('clients')
+      .select('id')
+      .eq('national_id', nationalId);
+      
+    if (excludeClientId) {
+      query = query.neq('id', excludeClientId);
+    }
+    
+    const { data, error } = await query;
+      
+    if (error) {
+      throw error;
+    }
+    
+    return data.length > 0;
+  } catch (error) {
+    console.error('Error checking national ID:', error);
+    return false;
+  }
+};
