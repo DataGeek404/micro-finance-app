@@ -57,7 +57,7 @@ import {
   createClient, 
   deleteClient,
   prepareClientsForExport
-} from '@/utils/clientUtils';
+} from '@/utils/client';
 import DownloadReport from '@/components/reports/DownloadReport';
 
 const clientSchema = z.object({
