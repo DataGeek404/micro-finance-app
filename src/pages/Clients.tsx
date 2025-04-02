@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -223,7 +222,6 @@ const Clients = () => {
           throw new Error(result.message);
         }
       } else {
-        // New client
         console.log("Creating new client with form data:", data);
         const newClientData = {
           firstName: data.firstName,
@@ -242,6 +240,17 @@ const Clients = () => {
         };
         
         console.log("Prepared client data for creation:", newClientData);
+        
+        if (!data.branchId) {
+          toast({
+            title: "Error validating form",
+            description: "Branch selection is required",
+            variant: "destructive",
+          });
+          setIsSubmitting(false);
+          return;
+        }
+
         const result = await createClient(newClientData);
         
         if (result.success && result.data) {
@@ -252,6 +261,8 @@ const Clients = () => {
             title: "Client added successfully",
             description: result.message,
           });
+          
+          setIsDialogOpen(false);
         } else {
           console.error("Error from createClient:", result);
           throw new Error(result.message);
