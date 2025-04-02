@@ -1,5 +1,5 @@
 
-import { Client } from "@/types/client";
+import { Client, ClientStatus } from "@/types/client";
 
 /**
  * Converts a client from Supabase format to application format
