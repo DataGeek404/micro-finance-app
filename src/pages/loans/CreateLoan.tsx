@@ -126,18 +126,19 @@ const CreateLoan = () => {
   // Create loan mutation
   const createLoanMutation = useMutation({
     mutationFn: async (loanData: LoanFormData) => {
+      // Fix: Pass a single object instead of an array of objects
       const { data, error } = await supabase
         .from('loans')
-        .insert([{
+        .insert({
           client_id: loanData.clientId,
           product_id: loanData.productId,
           branch_id: loanData.branchId,
-          amount: loanData.amount,
-          interest_rate: loanData.interestRate,
-          term: loanData.term,
+          amount: loanData.amount as number, // Type assertion since we validate it's a number
+          interest_rate: loanData.interestRate as number,
+          term: loanData.term as number,
           purpose: loanData.purpose,
           status: 'PENDING'
-        }])
+        })
         .select();
 
       if (error) throw error;
