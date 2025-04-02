@@ -31,7 +31,7 @@ interface LoanDetails {
   status: string;
   start_date: string | null;
   end_date: string | null;
-  client: {
+  clients: {
     first_name: string;
     last_name: string;
   };
