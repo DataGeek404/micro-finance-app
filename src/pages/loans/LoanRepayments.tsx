@@ -15,11 +15,12 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, ArrowLeft, CheckCircle, AlertCircle, CreditCard } from 'lucide-react';
+import { Loader2, ArrowLeft, CheckCircle, AlertCircle, CreditCard, Edit, Save, X } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -55,6 +56,9 @@ const LoanRepayments = () => {
   const [isRepayDialogOpen, setIsRepayDialogOpen] = useState(false);
   const [selectedRepayment, setSelectedRepayment] = useState<LoanRepayment | null>(null);
   const [repaymentAmount, setRepaymentAmount] = useState<string>('');
+  const [isEditingLoan, setIsEditingLoan] = useState(false);
+  const [editedLoanStatus, setEditedLoanStatus] = useState<string>('');
+  const [paymentMethod, setPaymentMethod] = useState<string>('Cash');
 
   // Fetch loan details
   const { 
@@ -87,6 +91,13 @@ const LoanRepayments = () => {
       return data as LoanDetails;
     }
   });
+
+  // Set edited loan status when loan details are loaded
+  useEffect(() => {
+    if (loanDetails) {
+      setEditedLoanStatus(loanDetails.status);
+    }
+  }, [loanDetails]);
 
   // Fetch loan repayments
   const { 
@@ -122,6 +133,36 @@ const LoanRepayments = () => {
     };
   }, [repayments]);
 
+  const handleSaveLoanStatus = async () => {
+    try {
+      const { error } = await supabase
+        .from('loans')
+        .update({ 
+          status: editedLoanStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+        
+      if (error) throw error;
+      
+      // Refetch loan details to update status
+      refetchLoan();
+      
+      setIsEditingLoan(false);
+      toast({
+        title: "Status Updated",
+        description: `Loan status changed to ${editedLoanStatus} successfully.`
+      });
+    } catch (err) {
+      console.error('Error updating loan status:', err);
+      toast({
+        title: "Error",
+        description: "Failed to update loan status.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handlePayment = async () => {
     if (!selectedRepayment || !repaymentAmount || parseFloat(repaymentAmount) < selectedRepayment.amount) {
       toast({
@@ -133,18 +174,66 @@ const LoanRepayments = () => {
     }
     
     try {
+      // Calculate amount paid (could be more than the due amount)
+      const amountPaid = parseFloat(repaymentAmount);
+      const overpayment = amountPaid - selectedRepayment.amount;
+      
       // Update repayment as paid
       const { error } = await supabase
         .from('loan_repayments')
         .update({ 
           is_paid: true,
           paid_date: new Date().toISOString(),
-          payment_method: 'Cash', // Could be from a form input
+          payment_method: paymentMethod,
           transaction_id: `TRANS-${Date.now()}` // Should come from payment processor in real app
         })
         .eq('id', selectedRepayment.id);
         
       if (error) throw error;
+      
+      // Handle overpayment by applying it to future repayments
+      if (overpayment > 0 && repayments) {
+        let remainingOverpayment = overpayment;
+        
+        // Find unpaid repayments to apply the overpayment to
+        const unpaidRepayments = repayments
+          .filter(r => !r.is_paid && r.id !== selectedRepayment.id)
+          .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+        
+        for (const repayment of unpaidRepayments) {
+          if (remainingOverpayment <= 0) break;
+          
+          if (remainingOverpayment >= repayment.amount) {
+            // Full payment of next installment
+            const { error: updateError } = await supabase
+              .from('loan_repayments')
+              .update({ 
+                is_paid: true,
+                paid_date: new Date().toISOString(),
+                payment_method: paymentMethod,
+                transaction_id: `TRANS-OVERPAY-${Date.now()}`
+              })
+              .eq('id', repayment.id);
+              
+            if (updateError) throw updateError;
+            
+            remainingOverpayment -= repayment.amount;
+            
+            toast({
+              title: "Additional Payment Applied",
+              description: `Overpayment fully covered the next installment of KSh ${repayment.amount.toLocaleString()}`
+            });
+          } else {
+            // Partial payment not supported in this implementation
+            // Could be implemented with more complex logic
+            toast({
+              title: "Overpayment Notice",
+              description: `Overpayment of KSh ${remainingOverpayment.toLocaleString()} will be credited to your account`
+            });
+            break;
+          }
+        }
+      }
       
       // Check if all repayments are now paid
       const { data: remainingRepayments, error: countError } = await supabase
@@ -175,6 +264,7 @@ const LoanRepayments = () => {
       setIsRepayDialogOpen(false);
       setSelectedRepayment(null);
       setRepaymentAmount('');
+      setPaymentMethod('Cash');
       
       // Refetch repayments
       refetchRepayments();
@@ -268,16 +358,53 @@ const LoanRepayments = () => {
             </p>
           </div>
           
-          <Badge 
-            className={`text-sm py-1.5 px-3 ${
-              loanDetails?.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' :
-              loanDetails?.status === 'COMPLETED' ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' :
-              'bg-amber-100 text-amber-700 hover:bg-amber-200'
-            }`}
-            variant="outline"
-          >
-            {loanDetails?.status}
-          </Badge>
+          <div className="flex items-center gap-2">
+            {isEditingLoan ? (
+              <>
+                <Select value={editedLoanStatus} onValueChange={setEditedLoanStatus}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PENDING">PENDING</SelectItem>
+                    <SelectItem value="APPROVED">APPROVED</SelectItem>
+                    <SelectItem value="ACTIVE">ACTIVE</SelectItem>
+                    <SelectItem value="COMPLETED">COMPLETED</SelectItem>
+                    <SelectItem value="DEFAULTED">DEFAULTED</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button size="sm" variant="default" onClick={handleSaveLoanStatus}>
+                  <Save className="h-4 w-4 mr-1" />
+                  Save
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => {
+                  setIsEditingLoan(false);
+                  setEditedLoanStatus(loanDetails?.status || '');
+                }}>
+                  <X className="h-4 w-4 mr-1" />
+                  Cancel
+                </Button>
+              </>
+            ) : (
+              <>
+                <Badge 
+                  className={`text-sm py-1.5 px-3 ${
+                    loanDetails?.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' :
+                    loanDetails?.status === 'COMPLETED' ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' :
+                    loanDetails?.status === 'DEFAULTED' ? 'bg-red-100 text-red-700 hover:bg-red-200' :
+                    'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                  }`}
+                  variant="outline"
+                >
+                  {loanDetails?.status}
+                </Badge>
+                <Button size="sm" variant="outline" onClick={() => setIsEditingLoan(true)}>
+                  <Edit className="h-4 w-4 mr-1" />
+                  Edit Status
+                </Button>
+              </>
+            )}
+          </div>
         </div>
         
         {/* Loan Summary */}
@@ -357,7 +484,7 @@ const LoanRepayments = () => {
                       <TableCell>{formatDate(repayment.paid_date)}</TableCell>
                       <TableCell>{repayment.payment_method || 'N/A'}</TableCell>
                       <TableCell className="text-right">
-                        {!repayment.is_paid && (
+                        {!repayment.is_paid && loanDetails?.status === 'ACTIVE' && (
                           <Button 
                             size="sm"
                             variant="outline"
@@ -414,6 +541,24 @@ const LoanRepayments = () => {
                 <p className="text-xs text-muted-foreground mt-1">
                   Minimum amount: {formatCurrency(selectedRepayment.amount)}
                 </p>
+                <p className="text-xs text-emerald-600 mt-1">
+                  Overpayments will be applied to future installments
+                </p>
+              </div>
+              
+              <div>
+                <Label htmlFor="paymentMethod" className="text-sm">Payment Method</Label>
+                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select payment method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Cash">Cash</SelectItem>
+                    <SelectItem value="Mpesa">M-PESA</SelectItem>
+                    <SelectItem value="BankTransfer">Bank Transfer</SelectItem>
+                    <SelectItem value="CreditCard">Credit Card</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               
               <DialogFooter>
