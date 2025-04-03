@@ -15,6 +15,11 @@ import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
+// Client pages
+import Clients from "./pages/Clients";
+import CreateClient from "./pages/clients/CreateClient";
+import EditClient from "./pages/clients/EditClient";
+
 // Loans pages
 import Loans from "./pages/Loans";
 import LoanApplications from "./pages/loans/LoanApplications";
@@ -63,6 +68,11 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            
+            {/* Client routes */}
+            <Route path="/clients" element={<Clients />} />
+            <Route path="/clients/new" element={<CreateClient />} />
+            <Route path="/clients/:id" element={<EditClient />} />
             
             {/* Loans routes */}
             <Route path="/loans" element={<Loans />} />

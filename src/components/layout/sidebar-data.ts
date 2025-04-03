@@ -1,6 +1,7 @@
 
 import { 
   Home, 
+  Users,
   DollarSign, 
   Building2, 
   LogOut, 
@@ -24,6 +25,11 @@ export const mainMenuItems = [
     title: 'Dashboard',
     path: '/dashboard',
     icon: Home,
+  },
+  {
+    title: 'Clients',
+    path: '/clients',
+    icon: Users,
   },
 ];
 
