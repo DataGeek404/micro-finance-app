@@ -16,7 +16,6 @@ export interface Client {
   createdAt: Date;
   updatedAt: Date;
   status: ClientStatus;
-  photo?: string;
 }
 
 export enum ClientStatus {

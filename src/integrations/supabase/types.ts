@@ -73,7 +73,6 @@ export type Database = {
           national_id: string
           occupation: string
           phone: string
-          photo: string | null
           status: string
           updated_at: string
         }
@@ -92,7 +91,6 @@ export type Database = {
           national_id: string
           occupation: string
           phone: string
-          photo?: string | null
           status?: string
           updated_at?: string
         }
@@ -111,7 +109,6 @@ export type Database = {
           national_id?: string
           occupation?: string
           phone?: string
-          photo?: string | null
           status?: string
           updated_at?: string
         }

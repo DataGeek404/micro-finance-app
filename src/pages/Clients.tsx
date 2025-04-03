@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -39,7 +38,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Client, ClientStatus } from '@/types/client';
 import { Plus, Search, MoreHorizontal, FileEdit, Trash, Eye } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useForm } from 'react-hook-form';
@@ -232,8 +231,6 @@ const Clients = () => {
           throw new Error(result.message);
         }
       } else {
-        // Remove the reference to checkNationalIdExists that doesn't exist
-        // We'll just proceed with saving the client directly
         const newClient = {
           first_name: data.firstName,
           last_name: data.lastName,
@@ -668,7 +665,6 @@ const Clients = () => {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar>
-                          <AvatarImage src={client.photo} />
                           <AvatarFallback>
                             {client.firstName.charAt(0)}
                             {client.lastName.charAt(0)}

@@ -23,7 +23,6 @@ export const transformClientData = (client: any): Client => ({
   createdAt: new Date(client.created_at),
   updatedAt: new Date(client.updated_at),
   status: client.status as ClientStatus,
-  photo: client.photo || undefined,
 });
 
 /**
@@ -46,8 +45,7 @@ export const updateClient = async (client: Client): Promise<{success: boolean, m
         income_source: client.incomeSource,
         monthly_income: client.monthlyIncome,
         branch_id: client.branchId,
-        status: client.status,
-        photo: client.photo || null
+        status: client.status
       })
       .eq('id', client.id)
       .select()
