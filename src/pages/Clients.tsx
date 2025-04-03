@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserPlus, RefreshCw, Users } from 'lucide-react';
 
-import { AppLayout } from '@/components/layout/AppLayout';
+import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ClientList } from '@/components/clients/ClientList';

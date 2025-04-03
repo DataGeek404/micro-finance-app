@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, User, AlertCircle } from 'lucide-react';
 
-import { AppLayout } from '@/components/layout/AppLayout';
+import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ClientForm } from '@/components/clients/ClientForm';

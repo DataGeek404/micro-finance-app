@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from './AppSidebar';
@@ -10,27 +9,24 @@ interface AppLayoutProps {
   children: React.ReactNode;
 }
 
-const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
+export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
   const [loadingTimeout, setLoadingTimeout] = useState(false);
   const [criticalTimeout, setCriticalTimeout] = useState(false);
 
-  // Add timeouts for better debugging and user experience
   useEffect(() => {
     if (isLoading) {
       console.log("AppLayout: Loading auth state...");
       
-      // Set a timeout to detect if loading takes too long
       const timeout = setTimeout(() => {
         console.log("Loading state is taking too long. Current auth state:", { isLoading, isAuthenticated });
         setLoadingTimeout(true);
-      }, 2000); // Reduced from 3000ms to 2000ms for more responsiveness
+      }, 2000);
       
-      // Set a critical timeout for very long loading
       const criticalTimeoutId = setTimeout(() => {
         console.error("Critical timeout reached. Forcing redirect to login page");
         setCriticalTimeout(true);
-      }, 5000); // Reduced from 8000ms to 5000ms for more responsiveness
+      }, 5000);
       
       return () => {
         clearTimeout(timeout);
@@ -43,13 +39,11 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     }
   }, [isLoading, isAuthenticated]);
 
-  // Force redirect if critical timeout is reached
   if (criticalTimeout) {
     console.log("Critical timeout reached, redirecting to login");
     return <Navigate to="/login" />;
   }
 
-  // Show loading UI while authentication state is being determined
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
@@ -81,13 +75,11 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     );
   }
 
-  // Redirect to login if not authenticated
   if (!isAuthenticated) {
     console.log("User not authenticated, redirecting to login");
     return <Navigate to="/login" />;
   }
 
-  // Render the app layout if authenticated
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
