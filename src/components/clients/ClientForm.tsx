@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -70,6 +71,7 @@ export const ClientForm = ({ client, branches, onSubmit, isSubmitting }: ClientF
   });
 
   const handleSubmit = (data: ClientFormData) => {
+    // Ensure data is properly formatted before submitting
     onSubmit({
       ...data,
       monthlyIncome: Number(data.monthlyIncome),

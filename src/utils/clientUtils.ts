@@ -130,6 +130,11 @@ export const createClient = async (client: Omit<Client, 'id' | 'createdAt' | 'up
  */
 export const updateClient = async (client: Client): Promise<{success: boolean, message: string, data?: Client}> => {
   try {
+    // Ensure dateOfBirth is properly formatted as an ISO string
+    const dateOfBirth = client.dateOfBirth instanceof Date 
+      ? client.dateOfBirth.toISOString() 
+      : new Date(client.dateOfBirth).toISOString();
+      
     const { data, error } = await supabase
       .from('clients')
       .update({
@@ -139,7 +144,7 @@ export const updateClient = async (client: Client): Promise<{success: boolean, m
         phone: client.phone,
         address: client.address,
         national_id: client.nationalId,
-        date_of_birth: client.dateOfBirth.toISOString(),
+        date_of_birth: dateOfBirth,
         gender: client.gender,
         occupation: client.occupation,
         income_source: client.incomeSource,

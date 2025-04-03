@@ -10,19 +10,7 @@ import { ClientForm } from '@/components/clients/ClientForm';
 import { fetchClientById, updateClient } from '@/utils/clientUtils';
 import { Client } from '@/types/client';
 import { toast } from '@/hooks/use-toast';
-
-// Mock function to fetch branches, replace with actual API call
-const fetchBranches = async () => {
-  // This would normally be an API call
-  return {
-    success: true,
-    data: [
-      { id: '1', name: 'Main Branch' },
-      { id: '2', name: 'East Branch' },
-      { id: '3', name: 'West Branch' },
-    ]
-  };
-};
+import { supabase } from '@/integrations/supabase/client';
 
 const EditClient = () => {
   const { id } = useParams<{ id: string }>();
@@ -39,11 +27,8 @@ const EditClient = () => {
       setError(null);
       
       try {
-        // Load client and branches in parallel
-        const [clientResult, branchesResult] = await Promise.all([
-          fetchClientById(id!),
-          fetchBranches()
-        ]);
+        // Load client data
+        const clientResult = await fetchClientById(id!);
         
         if (clientResult.success && clientResult.data) {
           setClient(clientResult.data);
@@ -51,13 +36,28 @@ const EditClient = () => {
           setError(clientResult.message);
         }
         
-        if (branchesResult.success && branchesResult.data) {
-          setBranches(branchesResult.data);
+        // Load branches from Supabase
+        const { data: branchesData, error: branchesError } = await supabase
+          .from('branches')
+          .select('id, name')
+          .eq('status', 'ACTIVE');
+          
+        if (branchesError) throw branchesError;
+        
+        if (branchesData && branchesData.length > 0) {
+          setBranches(branchesData);
         } else {
+          // Fallback to mock data if no branches exist
+          setBranches([
+            { id: '1', name: 'Main Branch' },
+            { id: '2', name: 'East Branch' },
+            { id: '3', name: 'West Branch' },
+          ]);
+          
           toast({
-            variant: "destructive",
-            title: "Error loading branches",
-            description: "Could not load branch data"
+            variant: "warning",
+            title: "Using mock branch data",
+            description: "No active branches found in the database"
           });
         }
       } catch (err) {
@@ -77,23 +77,42 @@ const EditClient = () => {
     if (!client) return;
     
     setIsSubmitting(true);
-    const result = await updateClient({
-      ...client,
-      ...data,
-    });
-    setIsSubmitting(false);
     
-    if (result.success) {
-      toast({
-        title: "Client updated",
-        description: "The client has been updated successfully"
+    try {
+      // Ensure the branch ID exists in our branches
+      if (!branches.some(branch => branch.id === data.branchId)) {
+        throw new Error("Selected branch does not exist");
+      }
+      
+      const result = await updateClient({
+        ...client,
+        ...data,
+        // Ensure dateOfBirth is treated as a date string, not a Date object
+        dateOfBirth: data.dateOfBirth
       });
-      navigate('/clients');
-    } else {
+      
+      setIsSubmitting(false);
+      
+      if (result.success) {
+        toast({
+          title: "Client updated",
+          description: "The client has been updated successfully"
+        });
+        navigate('/clients');
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error updating client",
+          description: result.message
+        });
+      }
+    } catch (error: any) {
+      console.error("Error updating client:", error);
+      setIsSubmitting(false);
       toast({
         variant: "destructive",
         title: "Error updating client",
-        description: result.message
+        description: error instanceof Error ? error.message : "An unexpected error occurred"
       });
     }
   };
