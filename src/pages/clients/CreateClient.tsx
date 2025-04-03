@@ -10,21 +10,14 @@ import { ClientForm } from '@/components/clients/ClientForm';
 import { createClient } from '@/utils/clientUtils';
 import { toast } from '@/hooks/use-toast';
 
-// Mock function to fetch branches, replace with actual API call
-const fetchBranches = async () => {
-  // This would normally be an API call
-  return {
-    success: true,
-    data: [
-      { id: '1', name: 'Main Branch' },
-      { id: '2', name: 'East Branch' },
-      { id: '3', name: 'West Branch' },
-    ]
-  };
+// Define proper branch type
+type Branch = {
+  id: string;
+  name: string;
 };
 
 const CreateClient = () => {
-  const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
@@ -32,17 +25,24 @@ const CreateClient = () => {
   useEffect(() => {
     const loadBranches = async () => {
       setIsLoading(true);
-      const result = await fetchBranches();
-      setIsLoading(false);
-      
-      if (result.success && result.data) {
-        setBranches(result.data);
-      } else {
+      try {
+        // Using mock data for branches with proper UUIDs
+        const mockBranches = [
+          { id: "123e4567-e89b-12d3-a456-426614174000", name: 'Main Branch' },
+          { id: "223e4567-e89b-12d3-a456-426614174001", name: 'East Branch' },
+          { id: "323e4567-e89b-12d3-a456-426614174002", name: 'West Branch' },
+        ];
+        
+        setBranches(mockBranches);
+        setIsLoading(false);
+      } catch (error) {
+        console.error("Error loading branches:", error);
         toast({
           variant: "destructive",
           title: "Error loading branches",
           description: "Could not load branch data"
         });
+        setIsLoading(false);
       }
     };
 
@@ -50,21 +50,38 @@ const CreateClient = () => {
   }, []);
 
   const handleSubmit = async (data: any) => {
+    console.log("Submitting client data:", data);
     setIsSubmitting(true);
-    const result = await createClient(data);
-    setIsSubmitting(false);
     
-    if (result.success) {
-      toast({
-        title: "Client created",
-        description: "The client has been created successfully"
-      });
-      navigate('/clients');
-    } else {
+    try {
+      // Validate branch ID is a valid UUID
+      if (!data.branchId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.branchId)) {
+        throw new Error("Invalid branch ID format");
+      }
+      
+      const result = await createClient(data);
+      setIsSubmitting(false);
+      
+      if (result.success) {
+        toast({
+          title: "Client created",
+          description: "The client has been created successfully"
+        });
+        navigate('/clients');
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error creating client",
+          description: result.message
+        });
+      }
+    } catch (error) {
+      console.error("Error in client creation:", error);
+      setIsSubmitting(false);
       toast({
         variant: "destructive",
         title: "Error creating client",
-        description: result.message
+        description: error instanceof Error ? error.message : "An unexpected error occurred"
       });
     }
   };
@@ -94,6 +111,13 @@ const CreateClient = () => {
             <CardContent>
               {isLoading ? (
                 <div className="flex justify-center p-4">Loading...</div>
+              ) : branches.length === 0 ? (
+                <div className="text-center p-4">
+                  <p className="text-destructive mb-2">No branches available</p>
+                  <p className="text-sm text-muted-foreground">
+                    Please create a branch before adding clients
+                  </p>
+                </div>
               ) : (
                 <ClientForm
                   branches={branches}

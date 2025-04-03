@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -30,7 +29,7 @@ const clientSchema = z.object({
   occupation: z.string().min(2, { message: "Occupation is required" }),
   incomeSource: z.string().min(2, { message: "Income source is required" }),
   monthlyIncome: z.number().positive({ message: "Monthly income must be positive" }),
-  branchId: z.string().min(1, { message: "Branch is required" }),
+  branchId: z.string().uuid({ message: "Valid branch ID is required" }),
   status: z.enum(["ACTIVE", "INACTIVE", "BLACKLISTED", "PENDING"], { message: "Status is required" }),
 });
 
@@ -76,6 +75,8 @@ export const ClientForm = ({ client, branches, onSubmit, isSubmitting }: ClientF
       monthlyIncome: Number(data.monthlyIncome),
     });
   };
+
+  const validBranches = branches && branches.length > 0 ? branches : [];
 
   return (
     <Form {...form}>
@@ -241,14 +242,18 @@ export const ClientForm = ({ client, branches, onSubmit, isSubmitting }: ClientF
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Branch</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select 
+                  onValueChange={field.onChange} 
+                  value={field.value}
+                  disabled={validBranches.length === 0}
+                >
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select branch" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {branches.map((branch) => (
+                    {validBranches.map((branch) => (
                       <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -298,7 +303,7 @@ export const ClientForm = ({ client, branches, onSubmit, isSubmitting }: ClientF
         />
 
         <div className="flex justify-end">
-          <Button type="submit" isLoading={isSubmitting}>
+          <Button type="submit" disabled={isSubmitting || validBranches.length === 0}>
             {client ? "Update Client" : "Create Client"}
           </Button>
         </div>
