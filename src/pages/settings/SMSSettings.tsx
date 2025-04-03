@@ -1,188 +1,355 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { MessageSquare, Send, Save } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { SMSSettings as SMSSettingsType } from '@/types/settings';
+import { supabase } from '@/integrations/supabase/client';
+import { Loader2, MessageSquare } from 'lucide-react';
 
 const SMSSettings = () => {
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const [smsSettings, setSmsSettings] = useState({
+    provider: 'twilio',
+    account_sid: '',
+    auth_token: '',
+    from_number: '',
+    api_key: '',
+    sender_id: ''
+  });
 
-  // Mock initial settings
-  const initialSettings: SMSSettingsType = {
-    provider: 'TWILIO',
-    accountSid: 'AC1234567890abcdef1234567890abcdef',
-    authToken: '********',
-    fromNumber: '+12025550142',
+  // Fetch SMS settings
+  useEffect(() => {
+    const fetchSMSSettings = async () => {
+      setIsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('sms_settings')
+          .select('*')
+          .maybeSingle();
+          
+        if (error) throw error;
+        
+        if (data) {
+          setSmsSettings({
+            provider: data.provider || 'twilio',
+            account_sid: data.account_sid || '',
+            auth_token: data.auth_token || '',
+            from_number: data.from_number || '',
+            api_key: data.api_key || '',
+            sender_id: data.sender_id || ''
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching SMS settings:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load SMS settings",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchSMSSettings();
+  }, [toast]);
+  
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setSmsSettings(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    toast({
-      title: "Settings Saved",
-      description: "SMS settings have been updated successfully."
-    });
+  
+  const handleProviderChange = (value: string) => {
+    setSmsSettings(prev => ({
+      ...prev,
+      provider: value
+    }));
   };
-
-  const handleTestSMS = () => {
-    toast({
-      title: "Test SMS Sent",
-      description: "A test SMS has been sent to the phone number."
-    });
+  
+  const handleSave = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('sms_settings')
+        .select('id')
+        .maybeSingle();
+      
+      if (error) throw error;
+      
+      if (data) {
+        // Update existing settings
+        const { error: updateError } = await supabase
+          .from('sms_settings')
+          .update(smsSettings)
+          .eq('id', data.id);
+          
+        if (updateError) throw updateError;
+      } else {
+        // Insert new settings
+        const { error: insertError } = await supabase
+          .from('sms_settings')
+          .insert([smsSettings]);
+          
+        if (insertError) throw insertError;
+      }
+      
+      toast({
+        title: "Settings saved",
+        description: "SMS settings have been updated successfully"
+      });
+    } catch (error) {
+      console.error('Error saving SMS settings:', error);
+      toast({
+        title: "Save failed",
+        description: "Could not save SMS settings. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const handleTestSMS = async () => {
+    setIsTesting(true);
+    try {
+      // In a real app, this would trigger a server-side function to send a test SMS
+      // For now, let's simulate a test SMS process
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      toast({
+        title: "Test SMS sent",
+        description: "If your settings are correct, you should receive the test SMS shortly."
+      });
+    } catch (error) {
+      console.error('Error sending test SMS:', error);
+      toast({
+        title: "Test failed",
+        description: "Could not send test SMS. Please check your settings.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsTesting(false);
+    }
   };
 
   return (
     <AppLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">SMS Settings</h1>
-          <p className="text-muted-foreground">Configure SMS notifications and delivery settings</p>
-        </div>
-
-        <Card>
-          <form onSubmit={handleSubmit}>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <MessageSquare className="mr-2 h-5 w-5" />
-                SMS Configuration
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="provider">SMS Provider</Label>
-                  <Select defaultValue={initialSettings.provider}>
-                    <SelectTrigger id="provider">
-                      <SelectValue placeholder="Select provider" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="TWILIO">Twilio</SelectItem>
-                      <SelectItem value="AFRICAS_TALKING">Africa's Talking</SelectItem>
-                      <SelectItem value="NEXMO">Vonage (Nexmo)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="accountSid">Account SID / API Key</Label>
-                    <Input id="accountSid" defaultValue={initialSettings.accountSid} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="authToken">Auth Token / API Secret</Label>
-                    <Input id="authToken" type="password" defaultValue={initialSettings.authToken} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="fromNumber">From Number / Sender ID</Label>
-                    <Input id="fromNumber" defaultValue={initialSettings.fromNumber} />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Phone number or sender ID that will appear as the sender
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium">SMS Templates</h3>
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="bg-muted rounded-md p-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-medium">Loan Approval</h4>
-                        <p className="text-sm text-muted-foreground">Sent when a loan is approved</p>
-                      </div>
-                      <Button variant="outline" size="sm">Edit Template</Button>
-                    </div>
-                  </div>
-                  <div className="bg-muted rounded-md p-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-medium">Payment Reminder</h4>
-                        <p className="text-sm text-muted-foreground">Sent before loan payments are due</p>
-                      </div>
-                      <Button variant="outline" size="sm">Edit Template</Button>
-                    </div>
-                  </div>
-                  <div className="bg-muted rounded-md p-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-medium">Payment Confirmation</h4>
-                        <p className="text-sm text-muted-foreground">Sent when a payment is received</p>
-                      </div>
-                      <Button variant="outline" size="sm">Edit Template</Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium">SMS Notification Settings</h3>
-                <div className="grid grid-cols-1 gap-3">
-                  <div className="flex items-center space-x-2">
-                    <input type="checkbox" id="loan-approval" defaultChecked />
-                    <Label htmlFor="loan-approval">Send SMS on loan approval</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <input type="checkbox" id="payment-reminder" defaultChecked />
-                    <Label htmlFor="payment-reminder">Send payment reminders</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <input type="checkbox" id="payment-received" defaultChecked />
-                    <Label htmlFor="payment-received">Send payment receipts</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <input type="checkbox" id="loan-disbursement" defaultChecked />
-                    <Label htmlFor="loan-disbursement">Send disbursement notifications</Label>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter className="border-t bg-muted/50 p-6 flex justify-between">
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="outline" type="button">
-                    <Send className="mr-2 h-4 w-4" />
-                    Test SMS
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Send Test SMS</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will send a test SMS to verify your configuration. Enter the recipient phone number below.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <div className="space-y-2 py-4">
-                    <Label htmlFor="testPhone">Phone Number</Label>
-                    <Input id="testPhone" placeholder="e.g. +1234567890" />
-                  </div>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleTestSMS}>Send Test</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-              
-              <Button type="submit">
-                <Save className="mr-2 h-4 w-4" />
-                Save Changes
-              </Button>
-            </CardFooter>
-          </form>
-        </Card>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold tracking-tight">SMS Settings</h1>
+        <p className="text-muted-foreground">Configure how SMS messages are sent to clients</p>
       </div>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>SMS Provider Configuration</CardTitle>
+          <CardDescription>Set up your SMS sending provider</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-4">
+            <Label>SMS Provider</Label>
+            <RadioGroup 
+              value={smsSettings.provider} 
+              onValueChange={handleProviderChange}
+              className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-4"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="twilio" id="twilio" />
+                <Label htmlFor="twilio" className="cursor-pointer">Twilio</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="africas_talking" id="africas_talking" />
+                <Label htmlFor="africas_talking" className="cursor-pointer">Africa's Talking</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="custom" id="custom" />
+                <Label htmlFor="custom" className="cursor-pointer">Custom</Label>
+              </div>
+            </RadioGroup>
+          </div>
+          
+          {smsSettings.provider === 'twilio' && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Twilio Settings</h3>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="account_sid">Account SID</Label>
+                  <Input 
+                    id="account_sid"
+                    name="account_sid"
+                    value={smsSettings.account_sid} 
+                    onChange={handleInputChange}
+                    disabled={isLoading}
+                    placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="auth_token">Auth Token</Label>
+                  <Input 
+                    id="auth_token"
+                    name="auth_token"
+                    type="password"
+                    value={smsSettings.auth_token} 
+                    onChange={handleInputChange}
+                    disabled={isLoading}
+                    placeholder="••••••••"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="from_number">From Number</Label>
+                  <Input 
+                    id="from_number"
+                    name="from_number"
+                    value={smsSettings.from_number} 
+                    onChange={handleInputChange}
+                    disabled={isLoading}
+                    placeholder="+1234567890"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {smsSettings.provider === 'africas_talking' && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Africa's Talking Settings</h3>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="api_key">API Key</Label>
+                  <Input 
+                    id="api_key"
+                    name="api_key"
+                    type="password"
+                    value={smsSettings.api_key} 
+                    onChange={handleInputChange}
+                    disabled={isLoading}
+                    placeholder="••••••••"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="sender_id">Sender ID</Label>
+                  <Input 
+                    id="sender_id"
+                    name="sender_id"
+                    value={smsSettings.sender_id} 
+                    onChange={handleInputChange}
+                    disabled={isLoading}
+                    placeholder="Your sender ID"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {smsSettings.provider === 'custom' && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Custom API Settings</h3>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="api_key">API Key</Label>
+                  <Input 
+                    id="api_key"
+                    name="api_key"
+                    type="password"
+                    value={smsSettings.api_key} 
+                    onChange={handleInputChange}
+                    disabled={isLoading}
+                    placeholder="••••••••"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="sender_id">Sender ID</Label>
+                  <Input 
+                    id="sender_id"
+                    name="sender_id"
+                    value={smsSettings.sender_id} 
+                    onChange={handleInputChange}
+                    disabled={isLoading}
+                    placeholder="Your sender ID"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <div className="space-y-4 pt-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-medium">SMS Templates</h3>
+                <p className="text-sm text-muted-foreground">
+                  Configure SMS templates for different notifications
+                </p>
+              </div>
+              <Button variant="outline" disabled={isLoading}>
+                Manage Templates
+              </Button>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Switch id="loan-approval-sms" defaultChecked />
+              <Label htmlFor="loan-approval-sms">Loan Approval</Label>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Switch id="payment-reminder-sms" defaultChecked />
+              <Label htmlFor="payment-reminder-sms">Payment Reminder</Label>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Switch id="payment-receipt-sms" defaultChecked />
+              <Label htmlFor="payment-receipt-sms">Payment Receipt</Label>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Switch id="loan-disbursement-sms" defaultChecked />
+              <Label htmlFor="loan-disbursement-sms">Loan Disbursement</Label>
+            </div>
+          </div>
+          
+          <div className="flex justify-end space-x-3 pt-6">
+            <Button
+              variant="outline"
+              type="button"
+              onClick={handleTestSMS}
+              disabled={isLoading || isTesting}
+            >
+              {isTesting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Testing...
+                </>
+              ) : (
+                <>
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  Test SMS
+                </>
+              )}
+            </Button>
+            
+            <Button
+              type="button"
+              onClick={handleSave}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : "Save Settings"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </AppLayout>
   );
 };

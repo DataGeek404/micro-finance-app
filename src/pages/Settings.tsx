@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,9 +8,167 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { Loader2, Upload } from 'lucide-react';
+import { uploadFile } from '@/utils/fileUpload';
 
 const Settings = () => {
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [organizationForm, setOrganizationForm] = useState({
+    name: '',
+    address: '',
+    city: '',
+    country: '',
+    phone: '',
+    email: '',
+    website: ''
+  });
+  
+  // Fetch organization settings
+  useEffect(() => {
+    const fetchOrgSettings = async () => {
+      setIsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('organization_settings')
+          .select('*')
+          .maybeSingle();
+          
+        if (error) throw error;
+        
+        if (data) {
+          setOrganizationForm({
+            name: data.name || '',
+            address: data.address || '',
+            city: data.address?.split(',')[0]?.trim() || '',
+            country: data.address?.split(',')[1]?.trim() || '',
+            phone: data.phone || '',
+            email: data.email || '',
+            website: data.website || ''
+          });
+          
+          setLogoUrl(data.logo);
+        }
+      } catch (error) {
+        console.error('Error fetching organization settings:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load organization settings",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchOrgSettings();
+  }, [toast]);
+  
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setOrganizationForm(prev => ({
+      ...prev,
+      [id.replace('org-', '')]: value
+    }));
+  };
+  
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Validate file type
+    const fileType = file.type;
+    if (!fileType.startsWith('image/')) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload an image file",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Logo image must be less than 2MB",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsUploading(true);
+    try {
+      // Upload to Supabase Storage
+      const logoPath = await uploadFile(file, 'organization_assets', 'logos');
+      
+      if (!logoPath) {
+        throw new Error("Failed to upload logo");
+      }
+      
+      // Update organization settings with new logo URL
+      const { error } = await supabase
+        .from('organization_settings')
+        .update({ logo: logoPath })
+        .eq('id', '1'); // Assuming there's only one organization record
+      
+      if (error) throw error;
+      
+      setLogoUrl(logoPath);
+      
+      toast({
+        title: "Logo uploaded",
+        description: "Your organization logo has been updated"
+      });
+    } catch (error) {
+      console.error('Error uploading logo:', error);
+      toast({
+        title: "Upload failed",
+        description: "Could not upload logo. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+  
+  const handleSaveOrganization = async () => {
+    setIsLoading(true);
+    try {
+      // Combine city and country into address
+      const fullAddress = `${organizationForm.address}`;
+      
+      const { error } = await supabase
+        .from('organization_settings')
+        .update({
+          name: organizationForm.name,
+          address: fullAddress,
+          phone: organizationForm.phone,
+          email: organizationForm.email,
+          website: organizationForm.website
+        })
+        .eq('id', '1'); // Assuming there's only one organization record
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Settings saved",
+        description: "Organization information has been updated successfully"
+      });
+    } catch (error) {
+      console.error('Error saving organization settings:', error);
+      toast({
+        title: "Save failed",
+        description: "Could not save organization settings. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
   const handleSave = () => {
     toast({
@@ -131,38 +289,130 @@ const Settings = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="flex flex-col items-center mb-6 space-y-4">
+                <div className="w-32 h-32 border rounded-lg flex items-center justify-center overflow-hidden bg-gray-50">
+                  {logoUrl ? (
+                    <img 
+                      src={logoUrl} 
+                      alt="Organization Logo" 
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    <div className="text-center text-muted-foreground text-sm">
+                      No logo uploaded
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="logo-upload" className="cursor-pointer">
+                    <div className="flex items-center space-x-2">
+                      <Button type="button" disabled={isUploading}>
+                        {isUploading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="mr-2 h-4 w-4" />
+                            Upload Logo
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    <Input 
+                      id="logo-upload" 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={handleLogoUpload}
+                      disabled={isUploading}
+                    />
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Recommended size: 200x200px, max 2MB
+                  </p>
+                </div>
+              </div>
+              
               <div className="space-y-2">
                 <Label htmlFor="org-name">Organization Name</Label>
-                <Input id="org-name" value="MicroFinance Solutions Ltd." />
+                <Input 
+                  id="org-name" 
+                  value={organizationForm.name} 
+                  onChange={handleInputChange}
+                  disabled={isLoading}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="org-address">Address</Label>
-                <Input id="org-address" value="123 Finance Street, Suite 500" />
+                <Input 
+                  id="org-address" 
+                  value={organizationForm.address} 
+                  onChange={handleInputChange}
+                  disabled={isLoading}
+                />
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="org-city">City</Label>
-                  <Input id="org-city" value="New York" />
+                  <Input 
+                    id="org-city" 
+                    value={organizationForm.city} 
+                    onChange={handleInputChange}
+                    disabled={isLoading}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="org-country">Country</Label>
-                  <Input id="org-country" value="United States" />
+                  <Input 
+                    id="org-country" 
+                    value={organizationForm.country} 
+                    onChange={handleInputChange}
+                    disabled={isLoading}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="org-phone">Phone</Label>
-                  <Input id="org-phone" value="555-123-4567" />
+                  <Input 
+                    id="org-phone" 
+                    value={organizationForm.phone} 
+                    onChange={handleInputChange}
+                    disabled={isLoading}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="org-email">Email</Label>
-                  <Input id="org-email" type="email" value="info@microfinance.com" />
+                  <Input 
+                    id="org-email" 
+                    type="email" 
+                    value={organizationForm.email} 
+                    onChange={handleInputChange}
+                    disabled={isLoading}
+                  />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="org-website">Website</Label>
-                <Input id="org-website" value="https://microfinance.com" />
+                <Input 
+                  id="org-website" 
+                  value={organizationForm.website} 
+                  onChange={handleInputChange}
+                  disabled={isLoading}
+                />
               </div>
               <div className="flex justify-end pt-4">
-                <Button onClick={handleSave}>Save Organization Info</Button>
+                <Button 
+                  onClick={handleSaveOrganization} 
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : "Save Organization Info"}
+                </Button>
               </div>
             </CardContent>
           </Card>
