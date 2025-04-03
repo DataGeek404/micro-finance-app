@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -43,6 +44,7 @@ import OrganizationSettings from "./pages/settings/OrganizationSettings";
 import GeneralSettings from "./pages/settings/GeneralSettings";
 import EmailSettings from "./pages/settings/EmailSettings";
 import SMSSettings from "./pages/settings/SMSSettings";
+import SMSTemplates from "./pages/settings/SMSTemplates";
 import SystemSettings from "./pages/settings/SystemSettings";
 import SystemUpdate from "./pages/settings/SystemUpdate";
 import OtherSettings from "./pages/settings/OtherSettings";
@@ -104,6 +106,7 @@ function App() {
               <Route path="/settings/general" element={<GeneralSettings />} />
               <Route path="/settings/email" element={<EmailSettings />} />
               <Route path="/settings/sms" element={<SMSSettings />} />
+              <Route path="/settings/sms/templates" element={<SMSTemplates />} />
               <Route path="/settings/system" element={<SystemSettings />} />
               <Route path="/settings/update" element={<SystemUpdate />} />
               <Route path="/settings/other" element={<OtherSettings />} />
