@@ -1,79 +1,80 @@
-
-import { 
-  Home, 
+import React from 'react';
+import {
+  BarChart3,
   Users,
-  DollarSign, 
-  Building2, 
-  LogOut, 
-  Settings, 
-  Wallet, 
-  Calculator, 
-  CreditCard, 
-  PieChart, 
-  Receipt, 
-  BadgeDollarSign, 
-  Mail, 
-  MessageSquare, 
-  MonitorSmartphone, 
-  RefreshCw, 
-  MoreHorizontal, 
-  BarChart3 
+  DollarSign,
+  BadgeDollarSign,
+  Wallet,
+  Settings,
+  FileText,
+  Home,
+  Bell,
+  Calendar,
+  LayoutDashboard,
+  Building,
+  CreditCard,
+  PiggyBank,
+  Landmark,
+  HelpCircle,
 } from 'lucide-react';
 
+// Main menu items
 export const mainMenuItems = [
-  {
-    title: 'Dashboard',
-    path: '/dashboard',
-    icon: Home,
-  },
-  {
-    title: 'Clients',
-    path: '/clients',
-    icon: Users,
-  },
+  { title: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+  { title: 'Clients', path: '/clients', icon: Users },
+  { title: 'Calendar', path: '/calendar', icon: Calendar },
+  { title: 'Reports', path: '/reports', icon: BarChart3 },
+  { title: 'Notifications', path: '/notifications', icon: Bell },
 ];
 
+// Loan menu items
 export const loanMenuItems = [
-  { title: 'View Loans', path: '/loans', icon: DollarSign },
-  { title: 'View Applications', path: '/loans/applications', icon: Receipt },
-  { title: 'Create Loan', path: '/loans/create', icon: CreditCard },
-  { title: 'Manage Products', path: '/loans/products', icon: BadgeDollarSign },
-  { title: 'Manage Charges', path: '/loans/charges', icon: Wallet },
-  { title: 'Loan Calculator', path: '/loans/calculator', icon: Calculator },
+  { title: 'All Loans', path: '/loans' },
+  { title: 'Create Loan', path: '/loans/create' },
+  { title: 'Loan Products', path: '/loans/products' },
+  { title: 'Loan Applications', path: '/loans/applications' },
+  { title: 'Loan Approvals', path: '/loans/approvals' },
+  { title: 'Loan Disbursements', path: '/loans/disbursements' },
+  { title: 'Loan Repayments', path: '/loans/repayments' },
+  { title: 'Loan Collateral', path: '/loans/collateral' },
+  { title: 'Loan Guarantors', path: '/loans/guarantors' },
 ];
 
+// Payroll menu items
 export const payrollMenuItems = [
-  { title: 'View Payroll', path: '/payroll', icon: BadgeDollarSign },
-  { title: 'Create Payroll', path: '/payroll/create', icon: DollarSign },
-  { title: 'Manage Payroll Items', path: '/payroll/items', icon: Receipt },
-  { title: 'Manage Payroll Templates', path: '/payroll/templates', icon: PieChart },
+  { title: 'Employees', path: '/payroll/employees' },
+  { title: 'Salary Payments', path: '/payroll/payments' },
+  { title: 'Payroll Settings', path: '/payroll/settings' },
+  { title: 'Tax Settings', path: '/payroll/tax' },
+  { title: 'Payroll Reports', path: '/payroll/reports' },
 ];
 
+// Expense menu items
 export const expenseMenuItems = [
-  { title: 'View Expenses', path: '/expenses', icon: Wallet },
-  { title: 'Create Expense', path: '/expenses/create', icon: CreditCard },
-  { title: 'Manage Expense Types', path: '/expenses/types', icon: PieChart },
+  { title: 'All Expenses', path: '/expenses' },
+  { title: 'Add Expense', path: '/expenses/add' },
+  { title: 'Expense Categories', path: '/expenses/categories' },
+  { title: 'Expense Reports', path: '/expenses/reports' },
+  { title: 'Expense Approvals', path: '/expenses/approvals' },
 ];
 
-export const settingsMenuItems = [
-  { title: 'Organisation Settings', path: '/settings/organization', icon: Building2 },
-  { title: 'General Settings', path: '/settings/general', icon: Settings },
-  { title: 'Email Settings', path: '/settings/email', icon: Mail },
-  { title: 'SMS Settings', path: '/settings/sms', icon: MessageSquare },
-  { title: 'System Settings', path: '/settings/system', icon: MonitorSmartphone },
-  { title: 'System Update', path: '/settings/update', icon: RefreshCw },
-  { title: 'Other Settings', path: '/settings/other', icon: MoreHorizontal },
-];
-
+// Other menu items
 export const otherMenuItems = [
-  {
-    title: 'Branches',
-    path: '/branches',
-    icon: Building2,
-  },
-  {
-    title: 'Reports',
-    path: '/reports',
-    icon: BarChart3,
-  },
+  { title: 'Branches', path: '/branches', icon: Building },
+  { title: 'Transactions', path: '/transactions', icon: CreditCard },
+  { title: 'Savings', path: '/savings', icon: PiggyBank },
+  { title: 'Banking', path: '/banking', icon: Landmark },
+  { title: 'Help', path: '/help', icon: HelpCircle },
+];
+
+// Settings menu items
+export const settingsMenuItems = [
+  { title: 'Organization', path: '/settings/organization' },
+  { title: 'General', path: '/settings/general' },
+  { title: 'Email', path: '/settings/email' },
+  { title: 'SMS', path: '/settings/sms' },
+  { title: 'System', path: '/settings/system' },
+  { title: 'Role Management', path: '/settings/roles' },
+  { title: 'Other', path: '/settings/other' },
+  { title: 'Updates', path: '/settings/updates' },
 ];

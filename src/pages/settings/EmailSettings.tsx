@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -9,7 +9,16 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Send } from 'lucide-react';
+import { Loader2, Send, Pencil } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogFooter, 
+  DialogHeader, 
+  DialogTitle 
+} from '@/components/ui/dialog';
 
 const EmailSettings = () => {
   const { toast } = useToast();
@@ -25,6 +34,13 @@ const EmailSettings = () => {
     smtp_password: '',
     api_key: '',
     domain: ''
+  });
+  
+  const [testEmailDialogOpen, setTestEmailDialogOpen] = useState(false);
+  const [testEmailData, setTestEmailData] = useState({
+    to: '',
+    subject: 'LoanLight Test Email',
+    body: 'This is a test email from LoanLight system. If you are receiving this, your email configuration is working correctly.'
   });
 
   // Fetch email settings
@@ -67,7 +83,7 @@ const EmailSettings = () => {
     fetchEmailSettings();
   }, [toast]);
   
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setEmailSettings(prev => ({
       ...prev,
@@ -79,6 +95,14 @@ const EmailSettings = () => {
     setEmailSettings(prev => ({
       ...prev,
       provider: value
+    }));
+  };
+
+  const handleTestEmailInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setTestEmailData(prev => ({
+      ...prev,
+      [name]: value
     }));
   };
   
@@ -134,14 +158,44 @@ const EmailSettings = () => {
   const handleTestEmail = async () => {
     setIsTesting(true);
     try {
-      // In a real app, this would trigger a server-side function to send a test email
-      // For now, let's simulate a test email process
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // First, save the current settings
+      await handleSave();
+      
+      // Open the test email dialog
+      setTestEmailDialogOpen(true);
+    } catch (error) {
+      console.error('Error preparing test email:', error);
+      toast({
+        title: "Test failed",
+        description: "Could not prepare test email. Please save your settings first.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  const handleSendTestEmail = async () => {
+    setIsTesting(true);
+    try {
+      // Call our edge function to send the test email
+      const { data, error } = await supabase.functions.invoke('send-email', {
+        body: {
+          to: testEmailData.to,
+          subject: testEmailData.subject,
+          body: testEmailData.body,
+          from: `${emailSettings.from_name} <${emailSettings.from_email}>`
+        }
+      });
+      
+      if (error) throw error;
       
       toast({
         title: "Test email sent",
         description: "If your settings are correct, you should receive the test email shortly."
       });
+      
+      setTestEmailDialogOpen(false);
     } catch (error) {
       console.error('Error sending test email:', error);
       toast({
@@ -327,6 +381,7 @@ const EmailSettings = () => {
                 </p>
               </div>
               <Button variant="outline" disabled={isLoading}>
+                <Pencil className="h-4 w-4 mr-2" />
                 Manage Templates
               </Button>
             </div>
@@ -387,6 +442,66 @@ const EmailSettings = () => {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={testEmailDialogOpen} onOpenChange={setTestEmailDialogOpen}>
+        <DialogContent className="sm:max-w-[525px]">
+          <DialogHeader>
+            <DialogTitle>Send Test Email</DialogTitle>
+            <DialogDescription>
+              Enter recipient information to send a test email using your current settings
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="to" className="text-right">
+                To
+              </Label>
+              <Input
+                id="to"
+                name="to"
+                value={testEmailData.to}
+                onChange={handleTestEmailInputChange}
+                className="col-span-3"
+                placeholder="recipient@example.com"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="subject" className="text-right">
+                Subject
+              </Label>
+              <Input
+                id="subject"
+                name="subject"
+                value={testEmailData.subject}
+                onChange={handleTestEmailInputChange}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="body" className="text-right">
+                Message
+              </Label>
+              <Textarea
+                id="body"
+                name="body"
+                value={testEmailData.body}
+                onChange={handleTestEmailInputChange}
+                className="col-span-3"
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTestEmailDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSendTestEmail} disabled={!testEmailData.to}>
+              {isTesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Send Test Email
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 };

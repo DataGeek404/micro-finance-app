@@ -9,7 +9,16 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, MessageSquare } from 'lucide-react';
+import { Loader2, MessageSquare, Pencil } from 'lucide-react';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogFooter, 
+  DialogHeader, 
+  DialogTitle 
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 
 const SMSSettings = () => {
   const { toast } = useToast();
@@ -22,6 +31,12 @@ const SMSSettings = () => {
     from_number: '',
     api_key: '',
     sender_id: ''
+  });
+
+  const [testSmsDialogOpen, setTestSmsDialogOpen] = useState(false);
+  const [testSmsData, setTestSmsData] = useState({
+    to: '',
+    message: 'This is a test SMS from LoanLight system. If you are receiving this, your SMS configuration is working correctly.'
   });
 
   // Fetch SMS settings
@@ -61,7 +76,7 @@ const SMSSettings = () => {
     fetchSMSSettings();
   }, [toast]);
   
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setSmsSettings(prev => ({
       ...prev,
@@ -73,6 +88,14 @@ const SMSSettings = () => {
     setSmsSettings(prev => ({
       ...prev,
       provider: value
+    }));
+  };
+
+  const handleTestSmsInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setTestSmsData(prev => ({
+      ...prev,
+      [name]: value
     }));
   };
   
@@ -122,14 +145,42 @@ const SMSSettings = () => {
   const handleTestSMS = async () => {
     setIsTesting(true);
     try {
-      // In a real app, this would trigger a server-side function to send a test SMS
-      // For now, let's simulate a test SMS process
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // First, save the current settings
+      await handleSave();
+      
+      // Open the test SMS dialog
+      setTestSmsDialogOpen(true);
+    } catch (error) {
+      console.error('Error preparing test SMS:', error);
+      toast({
+        title: "Test failed",
+        description: "Could not prepare test SMS. Please save your settings first.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  const handleSendTestSms = async () => {
+    setIsTesting(true);
+    try {
+      // Call our edge function to send the test SMS
+      const { data, error } = await supabase.functions.invoke('send-sms', {
+        body: {
+          to: testSmsData.to,
+          message: testSmsData.message
+        }
+      });
+      
+      if (error) throw error;
       
       toast({
         title: "Test SMS sent",
         description: "If your settings are correct, you should receive the test SMS shortly."
       });
+      
+      setTestSmsDialogOpen(false);
     } catch (error) {
       console.error('Error sending test SMS:', error);
       toast({
@@ -290,6 +341,7 @@ const SMSSettings = () => {
                 </p>
               </div>
               <Button variant="outline" disabled={isLoading}>
+                <Pencil className="h-4 w-4 mr-2" />
                 Manage Templates
               </Button>
             </div>
@@ -350,6 +402,54 @@ const SMSSettings = () => {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={testSmsDialogOpen} onOpenChange={setTestSmsDialogOpen}>
+        <DialogContent className="sm:max-w-[525px]">
+          <DialogHeader>
+            <DialogTitle>Send Test SMS</DialogTitle>
+            <DialogDescription>
+              Enter recipient phone number to send a test SMS using your current settings
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="to" className="text-right">
+                Phone Number
+              </Label>
+              <Input
+                id="to"
+                name="to"
+                value={testSmsData.to}
+                onChange={handleTestSmsInputChange}
+                className="col-span-3"
+                placeholder="+1234567890"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="message" className="text-right">
+                Message
+              </Label>
+              <Textarea
+                id="message"
+                name="message"
+                value={testSmsData.message}
+                onChange={handleTestSmsInputChange}
+                className="col-span-3"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTestSmsDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSendTestSms} disabled={!testSmsData.to}>
+              {isTesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Send Test SMS
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 };
