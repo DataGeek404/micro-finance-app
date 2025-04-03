@@ -6,9 +6,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Branch } from '@/types/branch';
+import { Branch, BranchStatus } from '@/types/branch';
 import { Loader2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface EditBranchDialogProps {
   branch: Branch;
@@ -29,7 +36,7 @@ const EditBranchDialog: React.FC<EditBranchDialogProps> = ({
     address: branch.address,
     phone: branch.phone,
     email: branch.email,
-    manager_name: branch.manager_name,
+    managerName: branch.managerName,
     status: branch.status
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -38,15 +45,33 @@ const EditBranchDialog: React.FC<EditBranchDialogProps> = ({
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
+  
+  const handleStatusChange = (value: string) => {
+    setFormData(prev => ({ 
+      ...prev, 
+      status: value as BranchStatus 
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
+    // Map from our Branch type to the database structure
+    const dbData = {
+      name: formData.name,
+      location: formData.location,
+      address: formData.address,
+      phone: formData.phone,
+      email: formData.email,
+      manager_name: formData.managerName,
+      status: formData.status
+    };
+
     try {
       const { error } = await supabase
         .from('branches')
-        .update(formData)
+        .update(dbData)
         .eq('id', branch.id);
 
       if (error) throw error;
@@ -143,11 +168,11 @@ const EditBranchDialog: React.FC<EditBranchDialogProps> = ({
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="manager_name">Manager Name</Label>
+              <Label htmlFor="managerName">Manager Name</Label>
               <Input
-                id="manager_name"
-                name="manager_name"
-                value={formData.manager_name || ''}
+                id="managerName"
+                name="managerName"
+                value={formData.managerName || ''}
                 onChange={handleInputChange}
                 required
               />
@@ -155,13 +180,19 @@ const EditBranchDialog: React.FC<EditBranchDialogProps> = ({
             
             <div className="space-y-2">
               <Label htmlFor="status">Status</Label>
-              <Input
-                id="status"
-                name="status"
-                value={formData.status || ''}
-                onChange={handleInputChange}
-                required
-              />
+              <Select 
+                value={formData.status} 
+                onValueChange={handleStatusChange}
+              >
+                <SelectTrigger id="status">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={BranchStatus.ACTIVE}>Active</SelectItem>
+                  <SelectItem value={BranchStatus.INACTIVE}>Inactive</SelectItem>
+                  <SelectItem value={BranchStatus.PENDING}>Pending</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           

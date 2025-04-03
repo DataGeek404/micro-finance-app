@@ -1,5 +1,6 @@
 
-import React from 'react';
+import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import AppLayout from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,10 +15,26 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { DollarSign } from 'lucide-react';
+import { DollarSign, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { Branch } from '@/types/branch';
 
 const CreateLoan = () => {
   const { toast } = useToast();
+  
+  // Fetch branches from Supabase
+  const { data: branches, isLoading: branchesLoading } = useQuery({
+    queryKey: ['branches'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('branches')
+        .select('*')
+        .order('name');
+      
+      if (error) throw error;
+      return data as Branch[];
+    }
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,14 +99,23 @@ const CreateLoan = () => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="branch">Branch</Label>
-                    <Select>
+                    <Select disabled={branchesLoading}>
                       <SelectTrigger id="branch">
-                        <SelectValue placeholder="Select branch" />
+                        {branchesLoading ? (
+                          <div className="flex items-center">
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            <span>Loading branches...</span>
+                          </div>
+                        ) : (
+                          <SelectValue placeholder="Select branch" />
+                        )}
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="1">Main Branch</SelectItem>
-                        <SelectItem value="2">North Branch</SelectItem>
-                        <SelectItem value="3">South Branch</SelectItem>
+                        {branches?.map((branch) => (
+                          <SelectItem key={branch.id} value={branch.id}>
+                            {branch.name}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
