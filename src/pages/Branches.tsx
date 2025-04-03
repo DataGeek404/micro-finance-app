@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,7 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { BranchStatus } from '@/types/branch';
-import { Building2, Users, Phone, Mail, Calendar, MapPin, Plus, Loader2 } from 'lucide-react';
+import { Building2, Users, Phone, Mail, Calendar, MapPin, Plus, Loader2, Edit } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -37,6 +38,7 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '@/components/ui/select';
+import EditBranchDialog from '@/components/branches/EditBranchDialog';
 
 const branchSchema = z.object({
   name: z.string().min(1, "Branch name is required"),
@@ -58,6 +60,8 @@ const Branches = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [selectedBranch, setSelectedBranch] = useState<any | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<BranchFormValues>({
@@ -187,6 +191,11 @@ const Branches = () => {
     }
   };
 
+  const handleEditBranch = (branch: any) => {
+    setSelectedBranch(branch);
+    setIsEditDialogOpen(true);
+  };
+
   const getStatusColor = (status: BranchStatus) => {
     switch(status) {
       case BranchStatus.ACTIVE:
@@ -248,7 +257,7 @@ const Branches = () => {
             
             <Form {...form}>
               <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="name"
@@ -460,14 +469,24 @@ const Branches = () => {
                   </div>
                 </div>
               </CardContent>
-              <CardFooter className="pt-2">
-                <Button variant="outline" className="w-full">
-                  View Details
+              <CardFooter className="pt-2 flex space-x-2">
+                <Button variant="outline" className="w-full" onClick={() => handleEditBranch(branch)}>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Branch
                 </Button>
               </CardFooter>
             </Card>
           ))}
         </div>
+      )}
+
+      {selectedBranch && (
+        <EditBranchDialog
+          isOpen={isEditDialogOpen}
+          onClose={() => setIsEditDialogOpen(false)}
+          branch={selectedBranch}
+          onSuccess={fetchBranches}
+        />
       )}
     </AppLayout>
   );
