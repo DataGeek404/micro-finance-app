@@ -7,8 +7,13 @@ import LoanStatusChart from '@/components/dashboard/LoanStatusChart';
 import RecentActivities from '@/components/dashboard/RecentActivities';
 import { Building2, DollarSign, Users, AlertTriangle } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
-import { fetchDashboardStats, fetchLoanStatusDistribution, fetchRecentActivities, formatCurrency } from '@/utils/dashboardUtils';
 import { Skeleton } from '@/components/ui/skeleton';
+import { 
+  fetchDashboardStats, 
+  fetchLoanStatusDistribution, 
+  fetchRecentActivities, 
+  formatCurrency 
+} from '@/utils/dashboard';
 
 const Dashboard = () => {
   const [stats, setStats] = useState<any>(null);
