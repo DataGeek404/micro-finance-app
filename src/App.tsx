@@ -10,7 +10,6 @@ import { AuthProvider } from "@/contexts/auth/AuthProvider";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
-import Clients from "./pages/Clients";
 import Branches from "./pages/Branches";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
@@ -64,7 +63,6 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/clients" element={<Clients />} />
             
             {/* Loans routes */}
             <Route path="/loans" element={<Loans />} />
