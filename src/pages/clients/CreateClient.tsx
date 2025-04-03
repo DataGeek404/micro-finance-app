@@ -9,12 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ClientForm } from '@/components/clients/ClientForm';
 import { createClient } from '@/utils/clientUtils';
 import { toast } from '@/hooks/use-toast';
-
-// Define proper branch type
-type Branch = {
-  id: string;
-  name: string;
-};
+import { supabase } from '@/integrations/supabase/client';
+import { Branch } from '@/types/branch';
 
 const CreateClient = () => {
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -26,14 +22,26 @@ const CreateClient = () => {
     const loadBranches = async () => {
       setIsLoading(true);
       try {
-        // Using mock data for branches with proper UUIDs
-        const mockBranches = [
-          { id: "123e4567-e89b-12d3-a456-426614174000", name: 'Main Branch' },
-          { id: "223e4567-e89b-12d3-a456-426614174001", name: 'East Branch' },
-          { id: "323e4567-e89b-12d3-a456-426614174002", name: 'West Branch' },
-        ];
+        // Fetch actual branches from Supabase instead of using mock data
+        const { data, error } = await supabase
+          .from('branches')
+          .select('id, name')
+          .eq('status', 'ACTIVE');
+          
+        if (error) throw error;
         
-        setBranches(mockBranches);
+        if (data && data.length > 0) {
+          setBranches(data);
+        } else {
+          // Fallback to mock data only if no branches exist
+          const mockBranches = [
+            { id: "123e4567-e89b-12d3-a456-426614174000", name: 'Main Branch' },
+            { id: "223e4567-e89b-12d3-a456-426614174001", name: 'East Branch' },
+            { id: "323e4567-e89b-12d3-a456-426614174002", name: 'West Branch' },
+          ];
+          
+          setBranches(mockBranches);
+        }
         setIsLoading(false);
       } catch (error) {
         console.error("Error loading branches:", error);
@@ -54,9 +62,15 @@ const CreateClient = () => {
     setIsSubmitting(true);
     
     try {
-      // Validate branch ID is a valid UUID
+      // Validate branch ID is valid UUID and exists in our branches array
       if (!data.branchId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.branchId)) {
         throw new Error("Invalid branch ID format");
+      }
+      
+      // Verify branch exists in our loaded branches
+      const branchExists = branches.some(branch => branch.id === data.branchId);
+      if (!branchExists) {
+        throw new Error("Selected branch does not exist");
       }
       
       const result = await createClient(data);
